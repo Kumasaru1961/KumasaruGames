@@ -121,6 +121,7 @@
     box-shadow: 0 3px 0 var(--coral-dark);
   }
 
+  /* 可変グリッドレイアウト（マウスリサイズ対応） */
   main{
     display:grid;
     grid-template-columns: minmax(320px, 1.25fr) 6px minmax(220px, 0.75fr) 6px minmax(220px, 0.75fr);
@@ -146,11 +147,12 @@
     }
     .resizer { display: none; }
 
+    /* 「プログラムをつくろう」は画面上を自由に動かせるフローティングパネルに[cite: 1] */
     .program-column{
       position: fixed;
       left: 4vw;
       top: 14vh;
-      width: min(78vw, 260px);
+      width: min(70vw, 230px);
       max-height: 54vh;
       overflow-y: auto;
       overflow-x: auto;
@@ -158,24 +160,23 @@
       z-index: 500;
       border-radius: 16px;
       box-shadow: 0 10px 26px rgba(38,49,77,0.35);
-      /* スクロールをスムーズにするためタッチアクションを許可 */
-      touch-action: pan-y pan-x;
     }
     .program-column .script-area{
+      max-height: 40vh;
+      overflow-y: auto;
       overflow-x: auto;
-      overflow-y: visible;
       -webkit-overflow-scrolling: touch;
       min-width: max-content;
-      touch-action: pan-y pan-x;
     }
 
     .palette-column{
       max-height: 42vh;
       overflow-y: auto;
-      -webkit-overflow-scrolling: touch;
     }
   }
 
+  /* ブロックには touch-action:none があり、指でブロックの上をなぞっても
+     画面がスクロールしないため、かわりに矢印ボタンで確実にスクロールできるようにする */
   .float-scroll-controls{
     display:none;
     gap:4px;
@@ -249,7 +250,7 @@
   }
 
   @media (max-width: 520px){
-    .program-column{ max-height: 48vh; width: min(72vw, 220px); }
+    .program-column{ max-height: 48vh; width: min(66vw, 200px); }
     .palette-column{ max-height: 38vh; }
     .palette-group-label{ font-size:8px; }
     .lego-block{ font-size:9px; padding:4px 6px; }
@@ -404,9 +405,7 @@
   .lego-block:active{ cursor:grabbing; }
   .lego-block.locked:active{ cursor:not-allowed; }
   .lego-icon{ font-size:11px; }
-  /* ブロック自体はドラッグ操作のためタッチアクションを無効化するが、スクロールコンテナ内での競合を防ぐ */
   .lego-block, .block-instance{ touch-action:none; user-select:none; -webkit-user-select:none; }
-  
   .drag-ghost{
     position:fixed;
     z-index:9999;
@@ -467,6 +466,7 @@
     z-index:10000;
     padding:14px;
   }
+  /* 追加：hiddenクラスがついた時に非表示にするスタイル */
   .tutorial-overlay.hidden{
     display:none !important;
   }
@@ -519,7 +519,13 @@
   .tutorial-item .t-icon{ font-size:14px; flex-shrink:0; line-height:1.3; }
   .tutorial-item .t-text{ font-size:10px; line-height:1.5; color:var(--ink); font-weight:500; }
   #tutorialOkBtn{ background:var(--coral); box-shadow:0 3px 0 var(--coral-dark); }
-  .script-area{min-height:110px;flex:1;
+  
+  /* PCおよびスマホの両方で最大15個相当の高さまで自動拡張し、超過時はスクロールバーに対応[cite: 1] */
+  .script-area{
+    min-height:110px;
+    max-height: calc(15 * 38px + 20px);
+    overflow-y:auto;
+    overflow-x:auto;
     background:var(--panel-bg2);
     border-radius:10px;
     padding:7px;
@@ -527,6 +533,7 @@
     flex-direction:column;
     gap:5px;
   }
+
   .script-area.drag-over, .repeat-body.drag-over, #funcBody.drag-over, .count-slot.drag-over{
     outline:3px dashed var(--coral);
     outline-offset:-4px;
@@ -830,6 +837,7 @@
 </div>
 
 <script>
+// --- マウスによる枠幅変更（リサイズ）の処理 ---
 const mainLayout = document.getElementById('mainLayout');
 const resizer1 = document.getElementById('resizer1');
 const resizer2 = document.getElementById('resizer2');
@@ -878,6 +886,7 @@ function onResizeEnd() {
 resizer1.addEventListener('pointerdown', (e) => initResize(e, 1));
 resizer2.addEventListener('pointerdown', (e) => initResize(e, 2));
 
+// --- スマホ表示：「プログラムをつくろう」パネルをドラッグで自由に動かせるようにする ---
 const panelProgram = document.getElementById('panelProgram');
 const floatHandle = document.getElementById('floatHandle');
 const floatCollapseBtn = document.getElementById('floatCollapseBtn');
@@ -960,6 +969,8 @@ window.addEventListener('resize', ()=>{
   }
 });
 
+// --- ゲームロジック ---
+// --- ランダムに変化するステージ生成 ---
 function randInt(min, max){ return Math.floor(Math.random()*(max-min+1))+min; }
 function shuffleArr(arr){
   const a = arr.slice();
@@ -1004,6 +1015,7 @@ function solveLevel(lv, allowJump){
     }
     if(allowJump){
       if(inB(nc,nr) && !isW(nc,nr)){
+        // move
       } else {
         const nc2=c+v.dc*2, nr2=r+v.dr*2;
         if(inB(nc,nr) && isW(nc,nr) && inB(nc2,nr2) && !isW(nc2,nr2)){
@@ -1239,7 +1251,7 @@ const STAGE_META = [
       {icon:'🏆', text:'さいごのステージ「こうりつチャレンジ」だよ！ゴールまでの行き方はこれまでと同じだけど、少ないブロック数でクリアするほど⭐が増えるよ。'},
       {icon:'🔁', text:'同じ「うごき」が何回も続くときは「くりかえす」ブロックでまとめると、ブロックの数をぐっと減らせるよ。'},
       {icon:'🔧', text:'よく使う一連のうごきは「わざ」に登録しておくと、「わざをよびだす」で何度でも短く使えるよ。'},
-      {icon:'💡', text:'クリアしたあとインフォボタンをおすと、お手本の考え方が見られるよ。'}
+      {icon:'💡', text:'クリアしたあと「さいてきかいとうを見る」ボタンをおすと、お手本の考え方が見られるよ。'}
     ] }
 ];
 
@@ -2135,6 +2147,7 @@ async function execNode(node){
     updateVarReadout();
     await sleep(120);
   } else if(node.type === 'varValue'){
+    // no-op
   } else if(node.type === 'call'){
     if(callDepth < 20){
       callDepth++;
