@@ -150,23 +150,32 @@
     /* 「プログラムをつくろう」は画面上を自由に動かせるフローティングパネルに[cite: 1] */
     .program-column{
       position: fixed;
-      left: 4vw;
-      top: 14vh;
-      width: min(70vw, 230px);
-      max-height: 54vh;
-      overflow-y: auto;
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
-      z-index: 500;
+      left: 3vw;
+      top: 6vh;
+      width: min(92vw, 260px);
+      max-height: 94vh;
+      background: var(--panel-bg);
       border-radius: 16px;
       box-shadow: 0 10px 26px rgba(38,49,77,0.35);
+      z-index: 500;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .program-column .workspace {
+      flex: 0 1 auto;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
     }
     .program-column .script-area{
-      max-height: 40vh;
+      max-height: calc(15 * 46px + 20px);
       overflow-y: auto;
       overflow-x: auto;
       -webkit-overflow-scrolling: touch;
       min-width: max-content;
+      flex: 0 0 auto;
     }
 
     .palette-column{
@@ -175,8 +184,6 @@
     }
   }
 
-  /* ブロックには touch-action:none があり、指でブロックの上をなぞっても
-     画面がスクロールしないため、かわりに矢印ボタンで確実にスクロールできるようにする */
   .float-scroll-controls{
     display:none;
     gap:4px;
@@ -250,7 +257,7 @@
   }
 
   @media (max-width: 520px){
-    .program-column{ max-height: 48vh; width: min(66vw, 200px); }
+    .program-column{ max-height: 94vh; width: min(88vw, 220px); }
     .palette-column{ max-height: 38vh; }
     .palette-group-label{ font-size:8px; }
     .lego-block{ font-size:9px; padding:4px 6px; }
@@ -466,7 +473,6 @@
     z-index:10000;
     padding:14px;
   }
-  /* 追加：hiddenクラスがついた時に非表示にするスタイル */
   .tutorial-overlay.hidden{
     display:none !important;
   }
@@ -520,10 +526,10 @@
   .tutorial-item .t-text{ font-size:10px; line-height:1.5; color:var(--ink); font-weight:500; }
   #tutorialOkBtn{ background:var(--coral); box-shadow:0 3px 0 var(--coral-dark); }
   
-  /* PCおよびスマホの両方で最大15個相当の高さまで自動拡張し、超過時はスクロールバーに対応[cite: 1] */
+  /* 最大15個分のブロックが収まるように高さを拡大（46px × 15個分 ＋ 余白） */
   .script-area{
     min-height:110px;
-    max-height: calc(15 * 38px + 20px);
+    max-height: calc(15 * 46px + 20px);
     overflow-y:auto;
     overflow-x:auto;
     background:var(--panel-bg2);
@@ -532,6 +538,7 @@
     display:flex;
     flex-direction:column;
     gap:5px;
+    flex: 0 1 auto;
   }
 
   .script-area.drag-over, .repeat-body.drag-over, #funcBody.drag-over, .count-slot.drag-over{
@@ -745,7 +752,7 @@
         <div class="workspace-header">
           <p class="panel-title" style="margin:0;">📜 プログラムをつくろう</p>
         </div>
-        <div class="script-area" id="scriptArea" style="flex:1;">
+        <div class="script-area" id="scriptArea">
           <div class="empty-hint">← ここに ブロックをドラッグしてね</div>
         </div>
       </div>
@@ -970,7 +977,6 @@ window.addEventListener('resize', ()=>{
 });
 
 // --- ゲームロジック ---
-// --- ランダムに変化するステージ生成 ---
 function randInt(min, max){ return Math.floor(Math.random()*(max-min+1))+min; }
 function shuffleArr(arr){
   const a = arr.slice();
@@ -1014,15 +1020,11 @@ function solveLevel(lv, allowJump){
       if(!visited.has(k)){ visited.add(k); queue.push({c:nc,r:nr,dir,mask:nm,d:d+1}); }
     }
     if(allowJump){
-      if(inB(nc,nr) && !isW(nc,nr)){
-        // move
-      } else {
-        const nc2=c+v.dc*2, nr2=r+v.dr*2;
-        if(inB(nc,nr) && isW(nc,nr) && inB(nc2,nr2) && !isW(nc2,nr2)){
-          const nm = maskAt(nc2,nr2,mask);
-          const k = key(nc2,nr2,dir,nm);
-          if(!visited.has(k)){ visited.add(k); queue.push({c:nc2,r:nr2,dir,mask:nm,d:d+1}); }
-        }
+      const nc2=c+v.dc*2, nr2=r+v.dr*2;
+      if(inB(nc,nr) && isW(nc,nr) && inB(nc2,nr2) && !isW(nc2,nr2)){
+        const nm = maskAt(nc2,nr2,mask);
+        const k = key(nc2,nr2,dir,nm);
+        if(!visited.has(k)){ visited.add(k); queue.push({c:nc2,r:nr2,dir,mask:nm,d:d+1}); }
       }
     }
     const ndR=(dir+1)%4;
@@ -1207,7 +1209,7 @@ function generateLevel(index){
 const STAGE_META = [
   { name:"ステージ1", cols:6, rows:5, wallCount:2, starCount:2,
     tutorial:[
-      {icon:'🧩', text:'左の「ブロックのはこ」から、右のプログラムエリアへ ブロックをドラッグしよう。'},
+      {icon:'🧩', text:'左のクローズボックスや「ブロックのはこ」から、プログラムエリアへブロックをドラッグしよう。'},
       {icon:'⬆️', text:'「すすむ」ブロックで、ロボットが向いている方向に1マス進むよ。'},
       {icon:'↩️', text:'「みぎをむく」「ひだりをむく」で、ロボットの向きを90ど回転できるよ。'},
       {icon:'⭐', text:'みちの とちゅうにある ⭐を ぜんぶ とおってから 🚩ゴールへ むかおう！'},
