@@ -142,30 +142,81 @@
 
   @media (max-width: 900px){
     main{
-      grid-template-columns: 1fr 1fr !important;
-      grid-template-areas:
-        "stage program"
-        "palette palette" !important;
-      gap:8px;
-    }
-    #panelStage{ grid-area: stage; min-width:0; }
-    #panelProgram{ grid-area: program; min-width:0; }
-    #panelPalette{ grid-area: palette; min-width:0; }
-    .program-column{
-      max-height: 64vh;
-      overflow-y: auto;
-    }
-    .palette-column{
-      max-height: 34vh;
-      overflow-y: auto;
+      grid-template-columns: 1fr !important;
+      gap:10px;
     }
     .resizer { display: none; }
+
+    /* 「プログラムをつくろう」は画面上を自由に動かせるフローティングパネルに */
+    .program-column{
+      position: fixed;
+      left: 4vw;
+      top: 14vh;
+      width: 92vw;
+      max-height: 54vh;
+      overflow-y: auto;
+      z-index: 500;
+      border-radius: 16px;
+      box-shadow: 0 10px 26px rgba(38,49,77,0.35);
+    }
+
+    .palette-column{
+      max-height: 42vh;
+      overflow-y: auto;
+    }
+  }
+
+  .float-handle{
+    display:none;
+    align-items:center;
+    gap:6px;
+    background: var(--coral);
+    color:#fff;
+    font-weight:800;
+    font-size:10px;
+    padding:7px 8px;
+    border-radius:10px;
+    margin-bottom:6px;
+    cursor:grab;
+    touch-action:none;
+    user-select:none;
+  }
+  .float-handle:active{ cursor:grabbing; }
+  .float-handle .float-collapse-btn{
+    margin-left:auto;
+    border:none;
+    background:rgba(255,255,255,0.25);
+    color:#fff;
+    width:20px;height:20px;
+    border-radius:6px;
+    font-size:11px;
+    cursor:pointer;
+    flex-shrink:0;
+  }
+
+  @media (max-width: 900px){
+    .float-handle{ display:flex; }
+  }
+
+  .float-reopen-btn{
+    display:none;
+    position:fixed;
+    right:16px;
+    bottom:16px;
+    z-index:600;
+    width:52px;height:52px;
+    border-radius:50%;
+    border:none;
+    background:var(--coral);
+    color:#fff;
+    font-size:22px;
+    box-shadow:0 6px 0 var(--coral-dark);
+    cursor:pointer;
   }
 
   @media (max-width: 520px){
-    main{ grid-template-columns: 0.9fr 1.1fr !important; }
-    .program-column{ max-height: 58vh; }
-    .palette-column{ max-height: 30vh; }
+    .program-column{ max-height: 48vh; }
+    .palette-column{ max-height: 38vh; }
     .palette-group-label{ font-size:8px; }
     .lego-block{ font-size:9px; padding:4px 6px; }
     .goal-text{ font-size:10px; }
@@ -637,6 +688,11 @@
     <div class="resizer" id="resizer1"></div>
 
     <section class="program-column" id="panelProgram">
+      <div class="float-handle" id="floatHandle">
+        <span>⠿⠿</span>
+        <span>📜 プログラムをつくろう（ドラッグで うごかせるよ）</span>
+        <button type="button" class="float-collapse-btn" id="floatCollapseBtn">✕</button>
+      </div>
       <div class="workspace" style="flex:1;">
         <div class="workspace-header">
           <p class="panel-title" style="margin:0;">📜 プログラムをつくろう</p>
@@ -703,6 +759,8 @@
       </div>
     </section>
   </main>
+
+  <button type="button" class="float-reopen-btn" id="floatReopenBtn" title="プログラムをひらく">📜</button>
 
   <footer class="tips">ブロックをくみあわせて、ロボットをゴールの旗まで動かそう。ブロックの上の × でけせるよ。間にあるバーをマウスでドラッグすると幅を自由に変えられます。</footer>
 </div>
@@ -780,6 +838,75 @@ function onResizeEnd() {
 resizer1.addEventListener('pointerdown', (e) => initResize(e, 1));
 resizer2.addEventListener('pointerdown', (e) => initResize(e, 2));
 
+// --- スマホ表示：「プログラムをつくろう」パネルをドラッグで自由に動かせるようにする ---
+const panelProgram = document.getElementById('panelProgram');
+const floatHandle = document.getElementById('floatHandle');
+const floatCollapseBtn = document.getElementById('floatCollapseBtn');
+const floatReopenBtn = document.getElementById('floatReopenBtn');
+
+function isMobileLayout(){
+  return window.matchMedia('(max-width: 900px)').matches;
+}
+
+let panelDrag = null;
+
+function onPanelDragStart(e){
+  if(!isMobileLayout()) return;
+  if(e.target.closest('.float-collapse-btn')) return;
+  const rect = panelProgram.getBoundingClientRect();
+  panelProgram.style.left = rect.left + 'px';
+  panelProgram.style.top = rect.top + 'px';
+  panelProgram.style.right = 'auto';
+  panelProgram.style.bottom = 'auto';
+  panelDrag = { startX: e.clientX, startY: e.clientY, startLeft: rect.left, startTop: rect.top };
+  window.addEventListener('pointermove', onPanelDragMove);
+  window.addEventListener('pointerup', onPanelDragEnd);
+  e.preventDefault();
+}
+
+function onPanelDragMove(e){
+  if(!panelDrag) return;
+  const dx = e.clientX - panelDrag.startX;
+  const dy = e.clientY - panelDrag.startY;
+  const maxLeft = window.innerWidth - panelProgram.offsetWidth - 6;
+  const maxTop = window.innerHeight - 48;
+  const newLeft = Math.max(6, Math.min(panelDrag.startLeft + dx, Math.max(6, maxLeft)));
+  const newTop = Math.max(6, Math.min(panelDrag.startTop + dy, Math.max(6, maxTop)));
+  panelProgram.style.left = newLeft + 'px';
+  panelProgram.style.top = newTop + 'px';
+}
+
+function onPanelDragEnd(){
+  panelDrag = null;
+  window.removeEventListener('pointermove', onPanelDragMove);
+  window.removeEventListener('pointerup', onPanelDragEnd);
+}
+
+if(floatHandle) floatHandle.addEventListener('pointerdown', onPanelDragStart);
+
+if(floatCollapseBtn){
+  floatCollapseBtn.addEventListener('click', ()=>{
+    panelProgram.style.display = 'none';
+    if(floatReopenBtn) floatReopenBtn.style.display = 'flex';
+  });
+}
+if(floatReopenBtn){
+  floatReopenBtn.addEventListener('click', ()=>{
+    panelProgram.style.display = 'flex';
+    floatReopenBtn.style.display = 'none';
+  });
+}
+
+window.addEventListener('resize', ()=>{
+  if(!isMobileLayout()){
+    panelProgram.style.left = '';
+    panelProgram.style.top = '';
+    panelProgram.style.right = '';
+    panelProgram.style.bottom = '';
+    panelProgram.style.display = '';
+    if(floatReopenBtn) floatReopenBtn.style.display = 'none';
+  }
+});
 
 // --- ゲームロジック ---
 // --- ランダムに変化するステージ生成 ---
