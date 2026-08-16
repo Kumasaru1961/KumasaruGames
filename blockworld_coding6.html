@@ -121,7 +121,6 @@
     box-shadow: 0 3px 0 var(--coral-dark);
   }
 
-  /* 可変グリッドレイアウト（マウスリサイズ対応） */
   main{
     display:grid;
     grid-template-columns: minmax(320px, 1.25fr) 6px minmax(220px, 0.75fr) 6px minmax(220px, 0.75fr);
@@ -147,12 +146,11 @@
     }
     .resizer { display: none; }
 
-    /* 「プログラムをつくろう」は画面上を自由に動かせるフローティングパネルに */
     .program-column{
       position: fixed;
       left: 4vw;
       top: 14vh;
-      width: min(70vw, 230px);
+      width: min(78vw, 260px);
       max-height: 54vh;
       overflow-y: auto;
       overflow-x: auto;
@@ -160,21 +158,24 @@
       z-index: 500;
       border-radius: 16px;
       box-shadow: 0 10px 26px rgba(38,49,77,0.35);
+      /* スクロールをスムーズにするためタッチアクションを許可 */
+      touch-action: pan-y pan-x;
     }
     .program-column .script-area{
       overflow-x: auto;
+      overflow-y: visible;
       -webkit-overflow-scrolling: touch;
       min-width: max-content;
+      touch-action: pan-y pan-x;
     }
 
     .palette-column{
       max-height: 42vh;
       overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
     }
   }
 
-  /* ブロックには touch-action:none があり、指でブロックの上をなぞっても
-     画面がスクロールしないため、かわりに矢印ボタンで確実にスクロールできるようにする */
   .float-scroll-controls{
     display:none;
     gap:4px;
@@ -248,7 +249,7 @@
   }
 
   @media (max-width: 520px){
-    .program-column{ max-height: 48vh; width: min(66vw, 200px); }
+    .program-column{ max-height: 48vh; width: min(72vw, 220px); }
     .palette-column{ max-height: 38vh; }
     .palette-group-label{ font-size:8px; }
     .lego-block{ font-size:9px; padding:4px 6px; }
@@ -403,7 +404,9 @@
   .lego-block:active{ cursor:grabbing; }
   .lego-block.locked:active{ cursor:not-allowed; }
   .lego-icon{ font-size:11px; }
+  /* ブロック自体はドラッグ操作のためタッチアクションを無効化するが、スクロールコンテナ内での競合を防ぐ */
   .lego-block, .block-instance{ touch-action:none; user-select:none; -webkit-user-select:none; }
+  
   .drag-ghost{
     position:fixed;
     z-index:9999;
@@ -464,7 +467,6 @@
     z-index:10000;
     padding:14px;
   }
-  /* 追加：hiddenクラスがついた時に非表示にするスタイル */
   .tutorial-overlay.hidden{
     display:none !important;
   }
@@ -828,7 +830,6 @@
 </div>
 
 <script>
-// --- マウスによる枠幅変更（リサイズ）の処理 ---
 const mainLayout = document.getElementById('mainLayout');
 const resizer1 = document.getElementById('resizer1');
 const resizer2 = document.getElementById('resizer2');
@@ -877,7 +878,6 @@ function onResizeEnd() {
 resizer1.addEventListener('pointerdown', (e) => initResize(e, 1));
 resizer2.addEventListener('pointerdown', (e) => initResize(e, 2));
 
-// --- スマホ表示：「プログラムをつくろう」パネルをドラッグで自由に動かせるようにする ---
 const panelProgram = document.getElementById('panelProgram');
 const floatHandle = document.getElementById('floatHandle');
 const floatCollapseBtn = document.getElementById('floatCollapseBtn');
@@ -960,10 +960,6 @@ window.addEventListener('resize', ()=>{
   }
 });
 
-// --- ゲームロジック ---
-// --- ランダムに変化するステージ生成 ---
-// ステージごとに「大きさ」「壁の数」「スターの数」など“学ぶ内容の難しさ”は固定したまま、
-// 壁やスター、ゴールの位置だけを毎回ランダムに作り直す仕組み。
 function randInt(min, max){ return Math.floor(Math.random()*(max-min+1))+min; }
 function shuffleArr(arr){
   const a = arr.slice();
@@ -977,8 +973,6 @@ function cellKey(c,r){ return c+','+r; }
 
 const GEN_DIR_VEC = [ {dc:0,dr:-1}, {dc:1,dr:0}, {dc:0,dr:1}, {dc:-1,dr:0} ];
 
-// 生成したステージが本当にゴールまでたどりつけるか（スターも全部集められるか）を確認しつつ、
-// クリアに最低限必要なブロック数の目安（par）を求める
 function solveLevel(lv, allowJump){
   const starCount = lv.stars.length;
   const fullMask = starCount>0 ? (1<<starCount)-1 : 0;
@@ -1010,7 +1004,6 @@ function solveLevel(lv, allowJump){
     }
     if(allowJump){
       if(inB(nc,nr) && !isW(nc,nr)){
-        // 何もないので1マス進むのと同じ（moveで処理済み）
       } else {
         const nc2=c+v.dc*2, nr2=r+v.dr*2;
         if(inB(nc,nr) && isW(nc,nr) && inB(nc2,nr2) && !isW(nc2,nr2)){
@@ -1027,11 +1020,9 @@ function solveLevel(lv, allowJump){
     const kL = key(c,r,ndL,mask);
     if(!visited.has(kL)){ visited.add(kL); queue.push({c,r,dir:ndL,mask,d:d+1}); }
   }
-  return -1; // 解けない配置
+  return -1;
 }
 
-// solveLevelと同じ探索だが、最短ルートの「うごき」の並びも一緒に返す
-// （効率チャレンジステージで「さいてきかいとう」を見せるために使う）
 function solveLevelWithPath(lv, allowJump){
   const starCount = lv.stars.length;
   const fullMask = starCount>0 ? (1<<starCount)-1 : 0;
@@ -1204,7 +1195,7 @@ function generateLevel(index){
 const STAGE_META = [
   { name:"ステージ1", cols:6, rows:5, wallCount:2, starCount:2,
     tutorial:[
-      {icon:'🧩', text:'左のk「ブロックのはこ」から、右のプログラムエリアへ ブロックをドラッグしよう。'},
+      {icon:'🧩', text:'左の「ブロックのはこ」から、右のプログラムエリアへ ブロックをドラッグしよう。'},
       {icon:'⬆️', text:'「すすむ」ブロックで、ロボットが向いている方向に1マス進むよ。'},
       {icon:'↩️', text:'「みぎをむく」「ひだりをむく」で、ロボットの向きを90ど回転できるよ。'},
       {icon:'⭐', text:'みちの とちゅうにある ⭐を ぜんぶ とおってから 🚩ゴールへ むかおう！'},
@@ -1248,7 +1239,7 @@ const STAGE_META = [
       {icon:'🏆', text:'さいごのステージ「こうりつチャレンジ」だよ！ゴールまでの行き方はこれまでと同じだけど、少ないブロック数でクリアするほど⭐が増えるよ。'},
       {icon:'🔁', text:'同じ「うごき」が何回も続くときは「くりかえす」ブロックでまとめると、ブロックの数をぐっと減らせるよ。'},
       {icon:'🔧', text:'よく使う一連のうごきは「わざ」に登録しておくと、「わざをよびだす」で何度でも短く使えるよ。'},
-      {icon:'💡', text:'クリアしたあと「さいてきかいとうを見る」ボタンをおすと、お手本の考え方が見られるよ。'}
+      {icon:'💡', text:'クリアしたあとインフォボタンをおすと、お手本の考え方が見られるよ。'}
     ] }
 ];
 
@@ -1338,7 +1329,6 @@ const solutionOkBtn = document.getElementById('solutionOkBtn');
 const scoreBadgeEl = document.getElementById('scoreBadge');
 const viewedStages = new Set();
 
-// --- スコア（各ステージのベスト★評価の合計）---
 let stageBestRating = new Array(STAGE_META.length).fill(0);
 function totalScorePoints(){
   return stageBestRating.reduce((a,b)=>a+b,0) * 10;
@@ -1473,20 +1463,16 @@ function drawGoalFlag(c,r,t){
   ctx.fill();
 }
 
-// facing(0〜3)ごとの画面上の進行方向ベクトル（アイソメ表示なので斜め4方向になる）
 const FACE_SCREEN_VEC = [
-  {x:0.87, y:-0.5},  // 0: 右上むき
-  {x:0.87, y:0.5},   // 1: 右下むき
-  {x:-0.87, y:0.5},  // 2: 左下むき
-  {x:-0.87, y:-0.5}  // 3: 左上むき
+  {x:0.87, y:-0.5},
+  {x:0.87, y:0.5},
+  {x:-0.87, y:0.5},
+  {x:-0.87, y:-0.5}
 ];
 
-// 足もとに「靴」を描いて、どちらを向いているかひと目でわかるようにする
 function drawShoes(x, footY, facing){
   const d = FACE_SCREEN_VEC[facing];
   const angle = Math.atan2(d.y, d.x);
-  // 左右の足は常に画面上で左右にはなして配置し（＝ふたつとわかるように）、
-  // むきによってつま先の向きだけ回転させる
   const forwardX = d.x*3;
   const forwardY = d.y*1.6;
 
@@ -1503,7 +1489,6 @@ function drawShoes(x, footY, facing){
     ctx.lineWidth = 1;
     roundRect(-6, -4, 13, 8, 4);
     ctx.stroke();
-    // つま先（進行方向を指す明るいアクセント）
     ctx.fillStyle = '#FFD75E';
     ctx.beginPath();
     ctx.moveTo(4, -4);
@@ -1518,12 +1503,9 @@ function drawShoes(x, footY, facing){
   shoe(7);
 }
 
-// 頭のてっぺんに帽子をかぶせる。ひさしが進行方向を向くので、目の向きと合わせて
-// どちらを向いているかさらにわかりやすくなる
 function drawHat(x, headTopY, facing){
   const d = FACE_SCREEN_VEC[facing];
 
-  // ぼうし本体（ドーム）
   ctx.fillStyle = '#4C8DFF';
   ctx.beginPath();
   ctx.arc(x, headTopY+1, 11, Math.PI, 0);
@@ -1535,7 +1517,6 @@ function drawHat(x, headTopY, facing){
   ctx.arc(x, headTopY+1, 11, Math.PI, 0);
   ctx.stroke();
 
-  // つば（進行方向を指すひさし）
   ctx.save();
   ctx.translate(x + d.x*9, headTopY+1 + d.y*9*0.55);
   ctx.rotate(Math.atan2(d.y, d.x));
@@ -1545,7 +1526,6 @@ function drawHat(x, headTopY, facing){
   ctx.fill();
   ctx.restore();
 
-  // てっぺんのポンポン
   ctx.fillStyle = '#FFC93C';
   ctx.beginPath();
   ctx.arc(x, headTopY-10, 3.2, 0, Math.PI*2);
@@ -1612,7 +1592,7 @@ function drawCharacter(x,y,facing,bounce,celebrating){
   }
 
   const d = FACE_SCREEN_VEC[facing];
-  const px = -d.y, py = d.x; // 目を横に並べるための垂直ベクトル
+  const px = -d.y, py = d.x;
   const headCenterY = bodyY - 23;
   const eMidX = x + d.x*3.5;
   const eMidY = headCenterY + d.y*3.5;
@@ -2076,7 +2056,7 @@ document.addEventListener('pointerdown', (e)=>{
 
   const paletteBlock = e.target.closest('.lego-block');
   if(paletteBlock){
-    if(paletteBlock.classList.contains('locked')) return; // ロックされているブロックはドラッグ不可
+    if(paletteBlock.classList.contains('locked')) return;
     e.preventDefault();
     startDrag('palette', null, paletteBlock.dataset.type, e.clientX, e.clientY);
   }
@@ -2155,7 +2135,6 @@ async function execNode(node){
     updateVarReadout();
     await sleep(120);
   } else if(node.type === 'varValue'){
-    /* reporter block used as a standalone statement does nothing */
   } else if(node.type === 'call'){
     if(callDepth < 20){
       callDepth++;
@@ -2244,7 +2223,6 @@ function updatePaletteLocks(stageIndex){
     }
   });
 
-  // ステージに応じて専用エリアの表示/非表示を切り替え
   if(stageNum >= 5){
     if(varReadoutEl) varReadoutEl.style.display = 'block';
   } else {
@@ -2318,7 +2296,6 @@ tutorialOverlay.addEventListener('click', (e)=>{
   if(e.target === tutorialOverlay) closeTutorial();
 });
 
-// --- 「さいてきかいとうを見る」モーダル ---
 const ACTION_LABEL = {
   move:'⬆️ すすむ',
   turnRight:'↩️ みぎをむく',
@@ -2330,8 +2307,6 @@ function buildSolutionExplanation(){
   if(!level.solutionPath || !level.solutionPath.actions || level.solutionPath.actions.length===0) return null;
   const actions = level.solutionPath.actions;
 
-  // 同じうごきが連続している部分を「くりかえす」でまとめられることに気づかせるため、
-  // 連続する同じアクションをグループ化する
   const groups = [];
   for(const a of actions){
     const last = groups[groups.length-1];
