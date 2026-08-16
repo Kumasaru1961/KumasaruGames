@@ -142,10 +142,28 @@
 
   @media (max-width: 900px){
     main{
-      grid-template-columns:1fr !important;
-      gap:10px;
+      grid-template-columns: 1fr 1fr !important;
+      grid-template-areas:
+        "stage stage"
+        "program palette" !important;
+      gap:8px;
+    }
+    #panelStage{ grid-area: stage; }
+    #panelProgram{ grid-area: program; min-width:0; }
+    #panelPalette{ grid-area: palette; min-width:0; }
+    .program-column, .palette-column{
+      max-height: 52vh;
+      overflow-y: auto;
     }
     .resizer { display: none; }
+  }
+
+  @media (max-width: 480px){
+    .program-column, .palette-column{
+      max-height: 46vh;
+    }
+    .palette-group-label{ font-size:8px; }
+    .lego-block{ font-size:9px; padding:4px 6px; }
   }
 
   .stage-panel{
