@@ -1,0 +1,2205 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ブロックワールド プログラミング</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=M+PLUS+Rounded+1c:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --sky-top:#8FD3F4;
+    --sky-bottom:#C9ECFF;
+    --panel-bg:#EDE6FF;
+    --panel-bg2:#F7F3FF;
+    --ink:#26314D;
+    --ink-soft:#5A6484;
+    --coral:#FF6F5E;
+    --coral-dark:#D8503F;
+    --yellow:#FFC93C;
+    --yellow-dark:#E0A619;
+    --grass:#7CC142;
+    --stone:#9AA5B1;
+    --stone-dark:#6E7784;
+    --motion:#4C8DFF;
+    --motion-dark:#2C63C7;
+    --control:#FF9F2C;
+    --control-dark:#D97D0F;
+    --function:#A65DF2;
+    --function-dark:#7A3FC2;
+    --variable:#22B2A0;
+    --variable-dark:#188579;
+    --white:#FFFFFF;
+    --card-shadow: 0 6px 0 rgba(38,49,77,0.18);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:'M PLUS Rounded 1c', sans-serif;
+    background: linear-gradient(180deg,#DCEFFF, #F2E9FF 60%, #FFF3E6);
+    color:var(--ink);
+    min-height:100vh;
+    padding:10px;
+  }
+  .app{
+    max-width:1280px;
+    margin:0 auto;
+  }
+  header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:8px;
+    margin-bottom:8px;
+  }
+  .header-right{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    flex-wrap:wrap;
+  }
+  .tutorial-btn{
+    background:var(--yellow) !important;
+    color:var(--ink) !important;
+    box-shadow: 0 3px 0 var(--yellow-dark) !important;
+  }
+  .score-badge{
+    position:absolute;
+    top:12px;
+    right:14px;
+    z-index:5;
+    font-family:'Baloo 2', sans-serif;
+    font-size:17px;
+    font-weight:800;
+    padding:8px 16px;
+    border-radius:12px;
+    color:#fff;
+    background: linear-gradient(180deg, #FFD75E, var(--yellow-dark));
+    box-shadow: 0 4px 0 #A97A0F;
+    white-space:nowrap;
+  }
+  h1{
+    font-family:'Baloo 2', 'M PLUS Rounded 1c', sans-serif;
+    font-size:16px;
+    margin:0;
+    color:var(--ink);
+    display:flex;
+    align-items:center;
+    gap:6px;
+  }
+  h1 .cube{
+    width:15px;height:15px;
+    background:var(--grass);
+    border-radius:4px;
+    box-shadow: inset -2px -3px 0 rgba(0,0,0,0.15), inset 2px 2px 0 rgba(255,255,255,0.35);
+    display:inline-block;
+  }
+  .stage-tabs{
+    display:flex;
+    gap:5px;
+  }
+  .stage-tab{
+    font-family:'Baloo 2', sans-serif;
+    font-size:10px;
+    font-weight:700;
+    padding:5px 9px;
+    border-radius:9px;
+    border:none;
+    background:var(--white);
+    color:var(--ink-soft);
+    cursor:pointer;
+    box-shadow: 0 3px 0 rgba(38,49,77,0.14);
+    transition: transform .08s ease;
+  }
+  .stage-tab:hover{ transform: translateY(-2px); }
+  .stage-tab:active{ transform: translateY(1px); box-shadow:0 2px 0 rgba(38,49,77,0.14);}
+  .stage-tab.active{
+    background:var(--coral);
+    color:#fff;
+    box-shadow: 0 3px 0 var(--coral-dark);
+  }
+
+  /* 可変グリッドレイアウト（マウスリサイズ対応） */
+  main{
+    display:grid;
+    grid-template-columns: minmax(320px, 1.25fr) 6px minmax(220px, 0.75fr) 6px minmax(220px, 0.75fr);
+    gap:0;
+    align-items:stretch;
+  }
+
+  .resizer {
+    background: rgba(0, 0, 0, 0.08);
+    cursor: col-resize;
+    border-radius: 4px;
+    transition: background 0.2s;
+    margin: 0 2px;
+  }
+  .resizer:hover, .resizer.resizing {
+    background: var(--coral);
+  }
+
+  @media (max-width: 900px){
+    main{
+      grid-template-columns:1fr !important;
+      gap:10px;
+    }
+    .resizer { display: none; }
+  }
+
+  .stage-panel{
+    background: linear-gradient(180deg, var(--sky-top), var(--sky-bottom));
+    border-radius:24px;
+    padding:16px;
+    box-shadow: var(--card-shadow);
+    position:relative;
+    overflow:hidden;
+    min-width:0;
+  }
+  .cloud{
+    position:absolute;
+    background:#fff;
+    opacity:.8;
+    border-radius:50px;
+  }
+  #world{
+    display:block;
+    width:100%;
+    max-width:900px;
+    height:auto;
+    margin:0 auto;
+    border-radius:16px;
+  }
+  .stage-footer{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-top:8px;
+    gap:6px;
+    flex-wrap:wrap;
+  }
+  .goal-text{
+    font-size:11px;
+    color:var(--ink);
+    background:rgba(255,255,255,0.75);
+    padding:5px 9px;
+    border-radius:8px;
+    font-weight:700;
+  }
+  .btn-row{ display:flex; gap:6px; }
+  button.action{
+    font-family:'Baloo 2', sans-serif;
+    font-weight:700;
+    font-size:11px;
+    border:none;
+    border-radius:9px;
+    padding:7px 12px;
+    cursor:pointer;
+    color:#fff;
+    transition: transform .08s ease;
+  }
+  button.action:hover{ transform: translateY(-2px); }
+  button.action:active{ transform: translateY(1px); }
+  #runBtn{ background:var(--grass); box-shadow:0 3px 0 #559A2A; }
+  #runBtn:disabled{ opacity:.55; cursor:default; transform:none; }
+  #resetBtn{ background:var(--motion); box-shadow:0 3px 0 var(--motion-dark); }
+  #clearBtn{ background:var(--stone); box-shadow:0 3px 0 var(--stone-dark); }
+
+  .message{
+    min-height:16px;
+    margin-top:6px;
+    font-weight:800;
+    font-size:11px;
+    text-align:center;
+    color:var(--coral-dark);
+    white-space:pre-line;
+    line-height:1.6;
+  }
+  .message.success{ color:#2E7D32; }
+  #solutionBtn{ display:none; }
+
+  .palette, .workspace{
+    background: var(--panel-bg);
+    border-radius:14px;
+    padding:8px;
+    box-shadow: var(--card-shadow);
+  }
+  .panel-title{
+    font-family:'Baloo 2', sans-serif;
+    font-size:11px;
+    font-weight:700;
+    margin:0 0 6px 3px;
+    color:var(--ink);
+  }
+  .palette-groups{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+  }
+  .palette-group{
+    background:var(--panel-bg2);
+    border-radius:10px;
+    padding:6px;
+  }
+  .palette-group-label{
+    font-size:9px;
+    font-weight:800;
+    color:var(--ink-soft);
+    margin:0 0 4px 3px;
+    letter-spacing:.4px;
+  }
+  .palette-blocks{
+    display:flex;
+    flex-wrap:wrap;
+    gap:4px;
+  }
+
+  .lego-block{
+    position:relative;
+    display:flex;
+    align-items:center;
+    gap:4px;
+    font-weight:700;
+    font-size:10px;
+    color:#fff;
+    padding:5px 8px;
+    border-radius:7px;
+    cursor:grab;
+    user-select:none;
+    white-space:nowrap;
+    transition: opacity 0.2s, filter 0.2s;
+  }
+  .lego-block.locked{
+    opacity: 0.3;
+    cursor: not-allowed;
+    filter: grayscale(0.5);
+  }
+  .lego-block .studs{
+    position:absolute;
+    top:-3px; left:8px;
+    display:flex;
+    gap:3px;
+  }
+  .lego-block .studs span{
+    width:5px;height:5px;
+    border-radius:50%;
+    background:inherit;
+    filter:brightness(1.15);
+  }
+  .lego-block.motion{ background:var(--motion); box-shadow:0 3px 0 var(--motion-dark); }
+  .lego-block.control{ background:var(--control); box-shadow:0 3px 0 var(--control-dark); }
+  .lego-block.function{ background:var(--function); box-shadow:0 3px 0 var(--function-dark); }
+  .lego-block.variable{ background:var(--variable); box-shadow:0 3px 0 var(--variable-dark); }
+  .lego-block.locked{ box-shadow: none !important; }
+  .lego-block:active{ cursor:grabbing; }
+  .lego-block.locked:active{ cursor:not-allowed; }
+  .lego-icon{ font-size:11px; }
+  .lego-block, .block-instance{ touch-action:none; user-select:none; -webkit-user-select:none; }
+  .drag-ghost{
+    position:fixed;
+    z-index:9999;
+    pointer-events:none;
+    padding:6px 10px;
+    border-radius:8px;
+    color:#fff;
+    font-weight:700;
+    font-size:10px;
+    box-shadow:0 4px 10px rgba(0,0,0,0.28);
+    transform:translate(-50%,-50%);
+    display:flex;
+    align-items:center;
+    gap:4px;
+    white-space:nowrap;
+  }
+  .drag-ghost.motion{ background:var(--motion); }
+  .drag-ghost.control{ background:var(--control); }
+  .drag-ghost.function{ background:var(--function); }
+  .drag-ghost.variable{ background:var(--variable); }
+
+  .workspace{min-height:0;flex:1;display:flex;flex-direction:column}
+  .workspace-header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:5px;
+  }
+  .func-editor{
+    background: #F3E9FF;
+    border:2px dashed var(--function);
+    margin-top: 8px;
+  }
+  .func-editor .script-area{ background:#FBF7FF; min-height:44px; }
+  .func-hint{
+    font-size:9px;
+    color:var(--function-dark);
+    font-weight:700;
+    margin:0 0 5px 1px;
+  }
+  .mini-clear{
+    border:none;
+    background:rgba(0,0,0,0.08);
+    color:var(--ink-soft);
+    width:18px;height:18px;
+    border-radius:6px;
+    cursor:pointer;
+    font-size:10px;
+  }
+
+  .tutorial-overlay{
+    position:fixed;
+    inset:0;
+    background:rgba(38,49,77,0.55);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:10000;
+    padding:14px;
+  }
+  /* 追加：hiddenクラスがついた時に非表示にするスタイル */
+  .tutorial-overlay.hidden{
+    display:none !important;
+  }
+
+  .tutorial-modal{
+    background:#fff;
+    border-radius:16px;
+    max-width:340px;
+    width:100%;
+    padding:14px;
+    box-shadow:0 6px 0 rgba(38,49,77,0.2);
+    max-height:85vh;
+    overflow-y:auto;
+  }
+  .tutorial-header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:8px;
+  }
+  .tutorial-header h2{
+    font-family:'Baloo 2', sans-serif;
+    font-size:13px;
+    margin:0;
+    color:var(--ink);
+  }
+  .tutorial-close{
+    border:none;
+    background:rgba(0,0,0,0.08);
+    width:20px;height:20px;
+    border-radius:7px;
+    font-size:11px;
+    cursor:pointer;
+    color:var(--ink-soft);
+  }
+  .tutorial-list{
+    display:flex;
+    flex-direction:column;
+    gap:7px;
+    margin-bottom:10px;
+  }
+  .tutorial-item{
+    display:flex;
+    gap:6px;
+    align-items:flex-start;
+    background:var(--panel-bg2);
+    padding:6px 8px;
+    border-radius:9px;
+  }
+  .tutorial-item .t-icon{ font-size:14px; flex-shrink:0; line-height:1.3; }
+  .tutorial-item .t-text{ font-size:10px; line-height:1.5; color:var(--ink); font-weight:500; }
+  #tutorialOkBtn{ background:var(--coral); box-shadow:0 3px 0 var(--coral-dark); }
+  .script-area{min-height:110px;flex:1;
+    background:var(--panel-bg2);
+    border-radius:10px;
+    padding:7px;
+    display:flex;
+    flex-direction:column;
+    gap:5px;
+  }
+  .script-area.drag-over, .repeat-body.drag-over, #funcBody.drag-over, .count-slot.drag-over{
+    outline:3px dashed var(--coral);
+    outline-offset:-4px;
+    border-radius:8px;
+  }
+  .empty-hint{
+    color:var(--ink-soft);
+    font-size:10px;
+    text-align:center;
+    padding:14px 5px;
+    font-weight:700;
+  }
+
+  .block-instance{
+    position:relative;
+    display:flex;
+    align-items:center;
+    gap:5px;
+    padding:5px 7px 5px 9px;
+    border-radius:8px;
+    color:#fff;
+    font-weight:700;
+    font-size:10px;
+    cursor:grab;
+  }
+  .block-instance .studs{
+    position:absolute;
+    top:-3px; left:9px;
+    display:flex;
+    gap:3px;
+  }
+  .block-instance .studs span{
+    width:5px;height:5px;
+    border-radius:50%;
+    background:inherit;
+    filter:brightness(1.15);
+  }
+  .block-instance.motion{ background:var(--motion); box-shadow:0 2px 0 var(--motion-dark); }
+  .block-instance.control{ background:var(--control); box-shadow:0 2px 0 var(--control-dark); flex-wrap:wrap; }
+  .block-instance.function{ background:var(--function); box-shadow:0 2px 0 var(--function-dark); }
+  .block-instance.variable{ background:var(--variable); box-shadow:0 2px 0 var(--variable-dark); }
+  .block-instance.running{ outline:3px solid #fff; outline-offset:-3px; filter:brightness(1.08); }
+  .block-instance .del{
+    margin-left:auto;
+    background:rgba(0,0,0,0.18);
+    border:none;
+    color:#fff;
+    width:16px;height:16px;
+    border-radius:50%;
+    cursor:pointer;
+    font-size:10px;
+    line-height:1;
+    flex-shrink:0;
+  }
+  .repeat-count{
+    display:flex;
+    align-items:center;
+    gap:3px;
+    background:rgba(0,0,0,0.15);
+    border-radius:7px;
+    padding:2px 4px;
+  }
+  .repeat-count button{
+    border:none;
+    background:rgba(255,255,255,0.85);
+    color:var(--control-dark);
+    width:15px;height:15px;
+    border-radius:5px;
+    font-weight:800;
+    cursor:pointer;
+    font-size:10px;
+    line-height:1;
+  }
+  .repeat-count span{
+    min-width:12px;
+    text-align:center;
+  }
+  .cond-toggle{
+    display:inline-flex;
+    align-items:center;
+    gap:3px;
+    background:rgba(0,0,0,0.15);
+    border-radius:7px;
+    padding:3px 7px;
+    cursor:pointer;
+    font-size:9px;
+    font-weight:800;
+  }
+  .cond-toggle:hover{ filter:brightness(1.12); }
+  .cond-toggle:active{ filter:brightness(0.95); }
+  .repeat-body{
+    width:100%;
+    background:rgba(255,255,255,0.25);
+    border-radius:8px;
+    padding:5px;
+    margin-top:4px;
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+    min-height:28px;
+  }
+  .repeat-body .empty-hint{ padding:6px; font-size:9px; color:#fff; opacity:.85;}
+
+  .count-slot{
+    display:inline-flex;
+    align-items:center;
+  }
+  .var-chip{
+    display:inline-flex;
+    align-items:center;
+    gap:3px;
+    background:var(--variable);
+    color:#fff;
+    font-weight:800;
+    font-size:9px;
+    padding:2px 4px 2px 6px;
+    border-radius:7px;
+  }
+  .var-chip .lego-icon{ font-size:9px; }
+  .var-chip .del{
+    background:rgba(0,0,0,0.2);
+    width:12px;height:12px;
+    font-size:8px;
+  }
+  .star-readout{
+    font-size:10px;
+    font-weight:800;
+    color:var(--yellow-dark);
+    background:rgba(255,255,255,0.75);
+    padding:3px 8px;
+    border-radius:8px;
+  }
+  .star-pop{
+    animation: starPop .5s ease;
+  }
+  @keyframes starPop{
+    0%{ transform:scale(1); }
+    40%{ transform:scale(1.35); }
+    100%{ transform:scale(1); }
+  }
+  .var-readout{
+    font-size:10px;
+    font-weight:800;
+    color:var(--variable-dark);
+    background:rgba(255,255,255,0.8);
+    padding:4px 8px;
+    border-radius:8px;
+  }
+
+  footer.tips{
+    margin-top:8px;
+    text-align:center;
+    color:var(--ink-soft);
+    font-size:10px;
+  }
+
+  .program-column, .palette-column {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1><span class="cube"></span>ブロックワールド プログラミング</h1>
+    <div class="header-right">
+      <button class="stage-tab tutorial-btn" id="tutorialBtn">❓ チュートリアル</button>
+      <div class="stage-tabs" id="stageTabs"></div>
+    </div>
+  </header>
+
+  <main id="mainLayout">
+    <section class="stage-panel" id="panelStage">
+      <div class="score-badge" id="scoreBadge">🏆 スコア: 0</div>
+      <div class="cloud" style="width:70px;height:26px;top:14px;left:20px;"></div>
+      <div class="cloud" style="width:50px;height:20px;top:34px;left:80px;"></div>
+      <canvas id="world" width="720" height="480"></canvas>
+      <div class="stage-footer">
+        <div class="goal-text" id="goalText">🚩 ゴールの旗までロボットを動かそう！</div>
+        <div class="var-readout" id="varReadout" style="display:none;">🔢 へんすう: 0</div>
+        <div class="star-readout" id="starReadout" style="display:none;">⭐ のこり: 0</div>
+      </div>
+      <div class="btn-row" style="margin-top:10px;">
+        <button class="action" id="runBtn">🚩 じっこう</button>
+        <button class="action" id="resetBtn">↩ いちにもどす</button>
+        <button class="action" id="clearBtn">🗑 ぜんぶけす</button>
+        <button class="action" id="solutionBtn" style="background:var(--function); box-shadow:0 3px 0 var(--function-dark);">💡 さいてきかいとうを見る</button>
+      </div>
+      <div class="message" id="message"></div>
+    </section>
+
+    <div class="resizer" id="resizer1"></div>
+
+    <section class="program-column" id="panelProgram">
+      <div class="workspace" style="flex:1;">
+        <div class="workspace-header">
+          <p class="panel-title" style="margin:0;">📜 プログラムをつくろう</p>
+        </div>
+        <div class="script-area" id="scriptArea" style="flex:1;">
+          <div class="empty-hint">← ここに ブロックをドラッグしてね</div>
+        </div>
+      </div>
+
+      <div class="workspace func-editor" id="funcEditor" style="display:none;">
+        <div class="workspace-header">
+          <p class="panel-title" style="margin:0;">🔧 じぶんの「わざ」をつくろう</p>
+          <button class="mini-clear" id="funcClearBtn" type="button">🗑</button>
+        </div>
+        <p class="func-hint">ここに ブロックをならべると、パレットの「わざをよびだす」でいつでもこの動きをつかえるよ！</p>
+        <div class="script-area" id="funcBody">
+          <div class="empty-hint">ここにブロックを入れてね</div>
+        </div>
+      </div>
+    </section>
+
+    <div class="resizer" id="resizer2"></div>
+
+    <section class="palette-column" id="panelPalette">
+      <div class="palette" style="flex:1; display:flex; flex-direction:column;">
+        <p class="panel-title">🧩 ブロックのはこ（ドラッグしてね）</p>
+        <div class="palette-groups" style="flex:1;">
+          <div class="palette-group">
+            <p class="palette-group-label">うごき</p>
+            <div class="palette-blocks">
+              <div class="lego-block motion" data-type="move"><span class="studs"><span></span><span></span></span><span class="lego-icon">⬆️</span>すすむ</div>
+              <div class="lego-block motion" data-type="turnRight"><span class="studs"><span></span><span></span></span><span class="lego-icon">↩️</span>みぎをむく</div>
+              <div class="lego-block motion" data-type="turnLeft"><span class="studs"><span></span><span></span></span><span class="lego-icon">↪️</span>ひだりをむく</div>
+              <div class="lego-block motion" data-type="jump" data-min-stage="3"><span class="studs"><span></span><span></span></span><span class="lego-icon">⤴️</span>ジャンプ</div>
+            </div>
+          </div>
+          <div class="palette-group">
+            <p class="palette-group-label">へんすう</p>
+            <div class="palette-blocks">
+              <div class="lego-block variable" data-type="setVar" data-min-stage="5"><span class="studs"><span></span><span></span></span><span class="lego-icon">🔢</span>へんすうを◯にする</div>
+              <div class="lego-block variable" data-type="changeVar" data-min-stage="5"><span class="studs"><span></span><span></span></span><span class="lego-icon">🔢</span>へんすうに◯たす</div>
+              <div class="lego-block variable" data-type="varValue" data-min-stage="5"><span class="studs"><span></span><span></span></span><span class="lego-icon">🔢</span>へんすう</div>
+            </div>
+          </div>
+          <div class="palette-group">
+            <p class="palette-group-label">くりかえし</p>
+            <div class="palette-blocks">
+              <div class="lego-block control" data-type="repeat" data-min-stage="2"><span class="studs"><span></span><span></span></span><span class="lego-icon">🔁</span>くりかえす</div>
+            </div>
+          </div>
+          <div class="palette-group">
+            <p class="palette-group-label">じょうけん</p>
+            <div class="palette-blocks">
+              <div class="lego-block control" data-type="if" data-min-stage="7"><span class="studs"><span></span><span></span></span><span class="lego-icon">❓</span>もし</div>
+            </div>
+          </div>
+          <div class="palette-group">
+            <p class="palette-group-label">かんすう</p>
+            <div class="palette-blocks">
+              <div class="lego-block function" data-type="call" data-min-stage="6"><span class="studs"><span></span><span></span></span><span class="lego-icon">▶️</span>わざをよびだす</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="tips">ブロックをくみあわせて、ロボットをゴールの旗まで動かそう。ブロックの上の × でけせるよ。間にあるバーをマウスでドラッグすると幅を自由に変えられます。</footer>
+</div>
+
+<div class="tutorial-overlay hidden" id="tutorialOverlay">
+  <div class="tutorial-modal">
+    <div class="tutorial-header">
+      <h2 id="tutorialTitle">📘 チュートリアル</h2>
+      <button class="tutorial-close" id="tutorialCloseBtn" type="button">×</button>
+    </div>
+    <div class="tutorial-list" id="tutorialList"></div>
+    <button class="action" id="tutorialOkBtn" type="button" style="display:block; margin:0 auto;">👍 わかった！</button>
+  </div>
+</div>
+
+<div class="tutorial-overlay hidden" id="solutionOverlay">
+  <div class="tutorial-modal">
+    <div class="tutorial-header">
+      <h2 id="solutionTitle">💡 さいてきかいとう</h2>
+      <button class="tutorial-close" id="solutionCloseBtn" type="button">×</button>
+    </div>
+    <div class="tutorial-list" id="solutionList"></div>
+    <p id="solutionNote" style="font-size:10px;line-height:1.6;color:var(--ink-soft);font-weight:700;margin:0 0 10px 2px;"></p>
+    <button class="action" id="solutionOkBtn" type="button" style="display:block; margin:0 auto; background:var(--function); box-shadow:0 3px 0 var(--function-dark);">👍 わかった！</button>
+  </div>
+</div>
+
+<script>
+// --- マウスによる枠幅変更（リサイズ）の処理 ---
+const mainLayout = document.getElementById('mainLayout');
+const resizer1 = document.getElementById('resizer1');
+const resizer2 = document.getElementById('resizer2');
+
+let activeResizer = null;
+let startX = 0;
+let startCols = [];
+
+function initResize(e, index) {
+  activeResizer = index;
+  startX = e.clientX;
+  const computed = window.getComputedStyle(mainLayout);
+  startCols = computed.gridTemplateColumns.split(' ').map(parseFloat);
+  
+  resizer1.classList.add('resizing');
+  resizer2.classList.add('resizing');
+  
+  window.addEventListener('pointermove', onResizeMove);
+  window.addEventListener('pointerup', onResizeEnd);
+  e.preventDefault();
+}
+
+function onResizeMove(e) {
+  if (!activeResizer) return;
+  const dx = e.clientX - startX;
+  
+  if (activeResizer === 1) {
+    let newCol1 = Math.max(300, startCols[0] + dx);
+    let newCol3 = Math.max(200, startCols[2] - dx);
+    mainLayout.style.gridTemplateColumns = `${newCol1}px 6px ${newCol3}px 6px ${startCols[4]}px`;
+  } else if (activeResizer === 2) {
+    let newCol3 = Math.max(200, startCols[2] + dx);
+    let newCol5 = Math.max(200, startCols[4] - dx);
+    mainLayout.style.gridTemplateColumns = `${startCols[0]}px 6px ${newCol3}px 6px ${newCol5}px`;
+  }
+}
+
+function onResizeEnd() {
+  activeResizer = null;
+  resizer1.classList.remove('resizing');
+  resizer2.classList.remove('resizing');
+  window.removeEventListener('pointermove', onResizeMove);
+  window.removeEventListener('pointerup', onResizeEnd);
+}
+
+resizer1.addEventListener('pointerdown', (e) => initResize(e, 1));
+resizer2.addEventListener('pointerdown', (e) => initResize(e, 2));
+
+
+// --- ゲームロジック ---
+// --- ランダムに変化するステージ生成 ---
+// ステージごとに「大きさ」「壁の数」「スターの数」など“学ぶ内容の難しさ”は固定したまま、
+// 壁やスター、ゴールの位置だけを毎回ランダムに作り直す仕組み。
+function randInt(min, max){ return Math.floor(Math.random()*(max-min+1))+min; }
+function shuffleArr(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+function cellKey(c,r){ return c+','+r; }
+
+const GEN_DIR_VEC = [ {dc:0,dr:-1}, {dc:1,dr:0}, {dc:0,dr:1}, {dc:-1,dr:0} ];
+
+// 生成したステージが本当にゴールまでたどりつけるか（スターも全部集められるか）を確認しつつ、
+// クリアに最低限必要なブロック数の目安（par）を求める
+function solveLevel(lv, allowJump){
+  const starCount = lv.stars.length;
+  const fullMask = starCount>0 ? (1<<starCount)-1 : 0;
+  const wallSet = new Set(lv.walls.map(w=>cellKey(w[0],w[1])));
+  const starIndex = new Map(lv.stars.map((s,i)=>[cellKey(s[0],s[1]), i]));
+
+  function inB(c,r){ return c>=0 && r>=0 && c<lv.cols && r<lv.rows; }
+  function isW(c,r){ return wallSet.has(cellKey(c,r)); }
+  function maskAt(c,r,mask){
+    const idx = starIndex.get(cellKey(c,r));
+    return idx===undefined ? mask : (mask | (1<<idx));
+  }
+
+  const startMask = maskAt(lv.start.c, lv.start.r, 0);
+  const key = (c,r,dir,mask)=> ((r*lv.cols+c)*4+dir)*(fullMask+1)+mask;
+  const visited = new Set();
+  visited.add(key(lv.start.c, lv.start.r, lv.start.dir, startMask));
+  let queue = [ {c:lv.start.c, r:lv.start.r, dir:lv.start.dir, mask:startMask, d:0} ];
+  let qi = 0;
+  while(qi < queue.length){
+    const {c,r,dir,mask,d} = queue[qi++];
+    if(c===lv.goal.c && r===lv.goal.r && mask===fullMask) return d;
+    const v = GEN_DIR_VEC[dir];
+    const nc=c+v.dc, nr=r+v.dr;
+    if(inB(nc,nr) && !isW(nc,nr)){
+      const nm = maskAt(nc,nr,mask);
+      const k = key(nc,nr,dir,nm);
+      if(!visited.has(k)){ visited.add(k); queue.push({c:nc,r:nr,dir,mask:nm,d:d+1}); }
+    }
+    if(allowJump){
+      if(inB(nc,nr) && !isW(nc,nr)){
+        // 何もないので1マス進むのと同じ（moveで処理済み）
+      } else {
+        const nc2=c+v.dc*2, nr2=r+v.dr*2;
+        if(inB(nc,nr) && isW(nc,nr) && inB(nc2,nr2) && !isW(nc2,nr2)){
+          const nm = maskAt(nc2,nr2,mask);
+          const k = key(nc2,nr2,dir,nm);
+          if(!visited.has(k)){ visited.add(k); queue.push({c:nc2,r:nr2,dir,mask:nm,d:d+1}); }
+        }
+      }
+    }
+    const ndR=(dir+1)%4;
+    const kR = key(c,r,ndR,mask);
+    if(!visited.has(kR)){ visited.add(kR); queue.push({c,r,dir:ndR,mask,d:d+1}); }
+    const ndL=(dir+3)%4;
+    const kL = key(c,r,ndL,mask);
+    if(!visited.has(kL)){ visited.add(kL); queue.push({c,r,dir:ndL,mask,d:d+1}); }
+  }
+  return -1; // 解けない配置
+}
+
+// solveLevelと同じ探索だが、最短ルートの「うごき」の並びも一緒に返す
+// （効率チャレンジステージで「さいてきかいとう」を見せるために使う）
+function solveLevelWithPath(lv, allowJump){
+  const starCount = lv.stars.length;
+  const fullMask = starCount>0 ? (1<<starCount)-1 : 0;
+  const wallSet = new Set(lv.walls.map(w=>cellKey(w[0],w[1])));
+  const starIndex = new Map(lv.stars.map((s,i)=>[cellKey(s[0],s[1]), i]));
+
+  function inB(c,r){ return c>=0 && r>=0 && c<lv.cols && r<lv.rows; }
+  function isW(c,r){ return wallSet.has(cellKey(c,r)); }
+  function maskAt(c,r,mask){
+    const idx = starIndex.get(cellKey(c,r));
+    return idx===undefined ? mask : (mask | (1<<idx));
+  }
+
+  const startMask = maskAt(lv.start.c, lv.start.r, 0);
+  const key = (c,r,dir,mask)=> ((r*lv.cols+c)*4+dir)*(fullMask+1)+mask;
+  const startKey = key(lv.start.c, lv.start.r, lv.start.dir, startMask);
+  const parent = new Map();
+  const visited = new Set([startKey]);
+  let queue = [ {c:lv.start.c, r:lv.start.r, dir:lv.start.dir, mask:startMask, d:0, k:startKey} ];
+  let qi = 0;
+  let goalState = null;
+  while(qi < queue.length){
+    const st = queue[qi++];
+    const {c,r,dir,mask,d,k} = st;
+    if(c===lv.goal.c && r===lv.goal.r && mask===fullMask){ goalState = st; break; }
+    const v = GEN_DIR_VEC[dir];
+    const nc=c+v.dc, nr=r+v.dr;
+    if(inB(nc,nr) && !isW(nc,nr)){
+      const nm = maskAt(nc,nr,mask);
+      const nk = key(nc,nr,dir,nm);
+      if(!visited.has(nk)){ visited.add(nk); parent.set(nk,{prev:k, action:'move'}); queue.push({c:nc,r:nr,dir,mask:nm,d:d+1,k:nk}); }
+    }
+    if(allowJump && !(inB(nc,nr) && !isW(nc,nr))){
+      const nc2=c+v.dc*2, nr2=r+v.dr*2;
+      if(inB(nc,nr) && isW(nc,nr) && inB(nc2,nr2) && !isW(nc2,nr2)){
+        const nm = maskAt(nc2,nr2,mask);
+        const nk = key(nc2,nr2,dir,nm);
+        if(!visited.has(nk)){ visited.add(nk); parent.set(nk,{prev:k, action:'jump'}); queue.push({c:nc2,r:nr2,dir,mask:nm,d:d+1,k:nk}); }
+      }
+    }
+    const ndR=(dir+1)%4;
+    const kR = key(c,r,ndR,mask);
+    if(!visited.has(kR)){ visited.add(kR); parent.set(kR,{prev:k, action:'turnRight'}); queue.push({c,r,dir:ndR,mask,d:d+1,k:kR}); }
+    const ndL=(dir+3)%4;
+    const kL = key(c,r,ndL,mask);
+    if(!visited.has(kL)){ visited.add(kL); parent.set(kL,{prev:k, action:'turnLeft'}); queue.push({c,r,dir:ndL,mask,d:d+1,k:kL}); }
+  }
+  if(!goalState) return null;
+  const actions = [];
+  let curKey = goalState.k;
+  while(curKey !== startKey){
+    const p = parent.get(curKey);
+    actions.push(p.action);
+    curKey = p.prev;
+  }
+  actions.reverse();
+  return { dist: goalState.d, actions };
+}
+
+function generateMazeStage(meta, stageNum){
+  const cols = meta.cols, rows = meta.rows;
+  const wallCount = meta.wallCount, starCount = meta.starCount;
+  const allowJump = stageNum >= 3;
+  const start = {c:0, r:rows-1, dir:0};
+  const needPath = !!meta.showSolution;
+
+  for(let attempt=0; attempt<250; attempt++){
+    let goal;
+    if(meta.interiorGoal){
+      goal = { c: randInt(Math.max(2,cols-4), cols-2), r: randInt(1, Math.min(3, rows-2)) };
+    } else {
+      goal = { c: cols-1, r:0 };
+    }
+    const forbidden = new Set([cellKey(start.c,start.r), cellKey(goal.c,goal.r)]);
+    const cellPool = [];
+    for(let c=0;c<cols;c++){
+      for(let r=0;r<rows;r++){
+        const k = cellKey(c,r);
+        if(!forbidden.has(k)) cellPool.push({c,r,key:k});
+      }
+    }
+    const shuffledPool = shuffleArr(cellPool);
+    const walls = [];
+    for(const cell of shuffledPool){
+      if(walls.length>=wallCount) break;
+      walls.push([cell.c, cell.r]);
+    }
+    if(walls.length < wallCount) continue;
+
+    const wallKeys = new Set(walls.map(w=>cellKey(w[0],w[1])));
+    const starCandidates = shuffledPool.filter(cell=>!wallKeys.has(cell.key));
+    if(starCandidates.length < starCount) continue;
+    const stars = shuffleArr(starCandidates).slice(0, starCount).map(cell=>[cell.c, cell.r]);
+
+    const lv = { cols, rows, start, goal, walls, stars };
+    const par = solveLevel(lv, allowJump);
+    if(par > 0){
+      const solutionPath = needPath ? solveLevelWithPath(lv, allowJump) : null;
+      return { ...lv, par, solutionPath };
+    }
+  }
+  const goal = meta.interiorGoal ? {c:cols-2, r:1} : {c:cols-1, r:0};
+  const stars = starCount>0 ? [[Math.floor(cols/3), Math.floor(rows/2)],[Math.floor(cols*2/3), Math.floor(rows/3)]].slice(0,starCount) : [];
+  const lv = { cols, rows, start, goal, walls:[], stars };
+  const par = solveLevel(lv, allowJump);
+  const solutionPath = (needPath && par>0) ? solveLevelWithPath(lv, allowJump) : null;
+  return { ...lv, par: par>0?par:999, solutionPath };
+}
+
+function generateCorridorStage(meta, stageNum){
+  const cols = meta.cols, rows = 3, midRow = 1;
+  const start = {c:0, r:midRow, dir:1};
+  const allowJump = stageNum >= 3;
+  const wallCount = meta.wallCount, starCount = meta.starCount;
+  const needPath = !!meta.showSolution;
+
+  for(let attempt=0; attempt<200; attempt++){
+    const goalC = randInt(Math.max(4, cols-5), cols-1);
+    const innerCols = [];
+    for(let c=1; c<goalC; c++) innerCols.push(c);
+    if(innerCols.length < wallCount + starCount) continue;
+
+    const shuffled = shuffleArr(innerCols);
+    const wallCols = [];
+    for(const c of shuffled){
+      if(wallCols.length>=wallCount) break;
+      if(wallCols.every(wc=>Math.abs(wc-c)>=2)) wallCols.push(c);
+    }
+    if(wallCols.length < wallCount) continue;
+
+    const remaining = innerCols.filter(c=>!wallCols.includes(c));
+    if(remaining.length < starCount) continue;
+    const starCols = shuffleArr(remaining).slice(0, starCount);
+
+    const walls = wallCols.map(c=>[c, midRow]);
+    const stars = starCols.map(c=>[c, midRow]);
+    const lv = { cols, rows, start, goal:{c:goalC, r:midRow}, walls, stars };
+    const par = solveLevel(lv, allowJump);
+    if(par > 0){
+      const solutionPath = needPath ? solveLevelWithPath(lv, allowJump) : null;
+      return { ...lv, par, solutionPath };
+    }
+  }
+  const goalC = cols-2;
+  const lv = { cols, rows, start, goal:{c:goalC,r:midRow}, walls:[], stars:[[Math.floor(goalC/3), midRow],[Math.floor(goalC*2/3), midRow]] };
+  const par = solveLevel(lv, allowJump);
+  const solutionPath = (needPath && par>0) ? solveLevelWithPath(lv, allowJump) : null;
+  return { ...lv, par: par>0?par:999, solutionPath };
+}
+
+function generateLevel(index){
+  const meta = STAGE_META[index];
+  const stageNum = index+1;
+  const lv = meta.type==='corridor' ? generateCorridorStage(meta, stageNum) : generateMazeStage(meta, stageNum);
+  return {
+    name: meta.name,
+    cols: lv.cols,
+    rows: lv.rows,
+    start: lv.start,
+    goal: lv.goal,
+    walls: lv.walls,
+    stars: lv.stars,
+    par: lv.par,
+    hint: meta.hint,
+    tutorial: meta.tutorial,
+    solutionPath: lv.solutionPath || null
+  };
+}
+
+const STAGE_META = [
+  { name:"ステージ1", cols:6, rows:5, wallCount:2, starCount:2,
+    tutorial:[
+      {icon:'🧩', text:'左のk「ブロックのはこ」から、右のプログラムエリアへ ブロックをドラッグしよう。'},
+      {icon:'⬆️', text:'「すすむ」ブロックで、ロボットが向いている方向に1マス進むよ。'},
+      {icon:'↩️', text:'「みぎをむく」「ひだりをむく」で、ロボットの向きを90ど回転できるよ。'},
+      {icon:'⭐', text:'みちの とちゅうにある ⭐を ぜんぶ とおってから 🚩ゴールへ むかおう！'},
+      {icon:'🚩', text:'ブロックをならべたら、「じっこう」ボタンをおそう。🚩ゴールの旗までたどりつけばクリア！'}
+    ] },
+  { name:"ステージ2", cols:7, rows:6, wallCount:7, starCount:2,
+    tutorial:[
+      {icon:'🧱', text:'灰色のブロック(かべ)には ぶつかれないよ。道をよく見て進もう。'},
+      {icon:'🔁', text:'新しいブロック「くりかえす」が使えるようになったよ！同じ動きをまとめてスッキリ書けるよ。'}
+    ] },
+  { name:"ステージ3", cols:7, rows:7, wallCount:8, starCount:2,
+    tutorial:[
+      {icon:'⤴️', text:'新しいブロック「ジャンプ」が使えるようになったよ！目の前のかべを1つだけ とびこえられるよ。'},
+      {icon:'🔁', text:'「くりかえす」ブロックの中に、他のブロックを入れて組み合わせてみよう。'}
+    ] },
+  { name:"ステージ4", cols:8, rows:7, wallCount:15, starCount:2,
+    tutorial:[
+      {icon:'🗺️', text:'これまでに習ったブロックを使って、少し長い道のりに挑戦してみよう。'}
+    ] },
+  { name:"ステージ5", type:'corridor', cols:9, wallCount:0, starCount:2,
+    hint:'🔢「へんすうを○にする」で かずを つくって、「くりかえす」の回数のところに「へんすう」ブロックを入れよう！',
+    tutorial:[
+      {icon:'🔢', text:'新しいブロック「へんすう」が使えるようになったよ！数を入れておける「はこ」のようなものだよ。'},
+      {icon:'🔁', text:'「くりかえす」ブロックの回数のところに「へんすう」チップをドラッグすると、設定した数だけくりかえせるよ。'}
+    ] },
+  { name:"ステージ6", cols:8, rows:9, wallCount:0, starCount:2, interiorGoal:true,
+    hint:'🔧「わざをつくる」にブロックを入れて、「わざをよびだす」をパレットからつかってゴールしよう！',
+    tutorial:[
+      {icon:'🔧', text:'新しいブロック「わざをよびだす」と、むらさき色のエリア「じぶんの『わざ』をつくろう」が使えるようになったよ！'},
+      {icon:'▶️', text:'エリアにブロックをならべるとオリジナルの動きが作れて、「わざをよびだす」でいつでも実行できるよ。'}
+    ] },
+  { name:"ステージ7", type:'corridor', cols:10, wallCount:2, starCount:2,
+    hint:'❓「もし」ブロックを つかって、ゆくてにかべがあるときは⤴️ジャンプ、ないときは⬆️すすむ、を組み合わせてみよう！',
+    tutorial:[
+      {icon:'❓', text:'新しいブロック「もし」が使えるようになったよ！条件が当てはまるときだけ中のブロックを実行するよ。'},
+      {icon:'🧱', text:'「もし」ブロックの中の条件チップをタップすると「ゆくてにかべがある」⇔「ゆくてにかべがない」を切り替えられるよ。'}
+    ] },
+  { name:"🏆 ステージ8", cols:8, rows:8, wallCount:10, starCount:2,
+    efficiencyChallenge:true, showSolution:true,
+    tutorial:[
+      {icon:'🏆', text:'さいごのステージ「こうりつチャレンジ」だよ！ゴールまでの行き方はこれまでと同じだけど、少ないブロック数でクリアするほど⭐が増えるよ。'},
+      {icon:'🔁', text:'同じ「うごき」が何回も続くときは「くりかえす」ブロックでまとめると、ブロックの数をぐっと減らせるよ。'},
+      {icon:'🔧', text:'よく使う一連のうごきは「わざ」に登録しておくと、「わざをよびだす」で何度でも短く使えるよ。'},
+      {icon:'💡', text:'クリアしたあと「さいてきかいとうを見る」ボタンをおすと、お手本の考え方が見られるよ。'}
+    ] }
+];
+
+let currentLevelIndex = 0;
+let level = null;
+let pos = {c:0,r:0};
+let dir = 0;
+let running = false;
+let goalReached = false;
+let celebrating = false;
+let animPos = {x:0,y:0};
+
+const canvas = document.getElementById('world');
+const ctx = canvas.getContext('2d');
+const scriptArea = document.getElementById('scriptArea');
+const funcBody = document.getElementById('funcBody');
+const funcEditor = document.getElementById('funcEditor');
+const funcClearBtn = document.getElementById('funcClearBtn');
+const varReadoutEl = document.getElementById('varReadout');
+const starReadoutEl = document.getElementById('starReadout');
+let callDepth = 0;
+let currentVarValue = 0;
+let collectedStars = new Set();
+let hintShownAtGoal = false;
+
+function updateVarReadout(){
+  if(varReadoutEl) varReadoutEl.textContent = '🔢 へんすう: ' + currentVarValue;
+}
+
+function starKey(c,r){ return c + ',' + r; }
+
+function totalStars(){
+  return (level.stars || []).length;
+}
+
+function remainingStars(){
+  return totalStars() - collectedStars.size;
+}
+
+function allStarsCollected(){
+  return remainingStars() <= 0;
+}
+
+function updateStarReadout(){
+  if(!starReadoutEl) return;
+  if(totalStars() === 0){
+    starReadoutEl.style.display = 'none';
+    return;
+  }
+  starReadoutEl.style.display = 'inline-block';
+  starReadoutEl.textContent = '⭐ のこり: ' + remainingStars();
+}
+
+function collectStarAt(c,r){
+  if(totalStars() === 0) return;
+  const key = starKey(c,r);
+  if(collectedStars.has(key)) return;
+  const isStar = (level.stars || []).some(s=> s[0]===c && s[1]===r);
+  if(!isStar) return;
+  collectedStars.add(key);
+  updateStarReadout();
+  if(starReadoutEl){
+    starReadoutEl.classList.remove('star-pop');
+    void starReadoutEl.offsetWidth;
+    starReadoutEl.classList.add('star-pop');
+  }
+}
+const runBtn = document.getElementById('runBtn');
+const resetBtn = document.getElementById('resetBtn');
+const clearBtn = document.getElementById('clearBtn');
+const solutionBtn = document.getElementById('solutionBtn');
+const messageEl = document.getElementById('message');
+const goalTextEl = document.getElementById('goalText');
+const stageTabsEl = document.getElementById('stageTabs');
+const tutorialBtn = document.getElementById('tutorialBtn');
+const tutorialOverlay = document.getElementById('tutorialOverlay');
+const tutorialTitle = document.getElementById('tutorialTitle');
+const tutorialList = document.getElementById('tutorialList');
+const tutorialCloseBtn = document.getElementById('tutorialCloseBtn');
+const tutorialOkBtn = document.getElementById('tutorialOkBtn');
+const solutionOverlay = document.getElementById('solutionOverlay');
+const solutionTitle = document.getElementById('solutionTitle');
+const solutionList = document.getElementById('solutionList');
+const solutionNote = document.getElementById('solutionNote');
+const solutionCloseBtn = document.getElementById('solutionCloseBtn');
+const solutionOkBtn = document.getElementById('solutionOkBtn');
+const scoreBadgeEl = document.getElementById('scoreBadge');
+const viewedStages = new Set();
+
+// --- スコア（各ステージのベスト★評価の合計）---
+let stageBestRating = new Array(STAGE_META.length).fill(0);
+function totalScorePoints(){
+  return stageBestRating.reduce((a,b)=>a+b,0) * 10;
+}
+function maxScorePoints(){
+  return STAGE_META.length * 3 * 10;
+}
+function updateScoreBadge(){
+  if(scoreBadgeEl) scoreBadgeEl.textContent = '🏆 スコア: ' + totalScorePoints() + ' / ' + maxScorePoints();
+}
+
+const TILE_W = 74, TILE_H = 42, CUBE_H = 30;
+
+function isWall(c,r){
+  return level.walls.some(w => w[0]===c && w[1]===r);
+}
+function inBounds(c,r){
+  return c>=0 && r>=0 && c<level.cols && r<level.rows;
+}
+function originForLevel(){
+  const spanX = (level.cols + level.rows) * (TILE_W/2);
+  return { x: canvas.width/2, y: (canvas.height - (level.cols+level.rows)*(TILE_H/2))/2 + 30 };
+}
+function isoPos(c,r){
+  const o = originForLevel();
+  return { x: o.x + (c-r)*(TILE_W/2), y: o.y + (c+r)*(TILE_H/2) };
+}
+
+function diamondPath(cx,cy){
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - TILE_H/2);
+  ctx.lineTo(cx + TILE_W/2, cy);
+  ctx.lineTo(cx, cy + TILE_H/2);
+  ctx.lineTo(cx - TILE_W/2, cy);
+  ctx.closePath();
+}
+
+function drawFloorTile(c,r){
+  const p = isoPos(c,r);
+  const shade = (c+r)%2===0 ? '#8ED155' : '#7CC142';
+  diamondPath(p.x,p.y);
+  ctx.fillStyle = shade;
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,0.12)';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+}
+
+function drawWallCube(c,r){
+  const p = isoPos(c,r);
+  const top = { x:p.x, y:p.y - CUBE_H };
+  ctx.beginPath();
+  ctx.moveTo(top.x, top.y - TILE_H/2);
+  ctx.lineTo(top.x + TILE_W/2, top.y);
+  ctx.lineTo(top.x, top.y + TILE_H/2);
+  ctx.lineTo(top.x - TILE_W/2, top.y);
+  ctx.closePath();
+  ctx.fillStyle = '#B6BFC9';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,0.15)';
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(top.x - TILE_W/2, top.y);
+  ctx.lineTo(top.x, top.y + TILE_H/2);
+  ctx.lineTo(p.x, p.y + TILE_H/2);
+  ctx.lineTo(p.x - TILE_W/2, p.y);
+  ctx.closePath();
+  ctx.fillStyle = '#8A939E';
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(top.x + TILE_W/2, top.y);
+  ctx.lineTo(top.x, top.y + TILE_H/2);
+  ctx.lineTo(p.x, p.y + TILE_H/2);
+  ctx.lineTo(p.x + TILE_W/2, p.y);
+  ctx.closePath();
+  ctx.fillStyle = '#9AA5B1';
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = 'rgba(255,255,255,0.55)';
+  const studPositions = [[-14,-6],[0,-10],[14,-6],[0,-2]];
+  studPositions.forEach(sp=>{
+    ctx.beginPath();
+    ctx.ellipse(top.x+sp[0], top.y+sp[1], 5,3,0,0,Math.PI*2);
+    ctx.fill();
+  });
+}
+
+function drawStarItem(c,r,t){
+  const p = isoPos(c,r);
+  const bob = Math.sin(t/220 + (c+r)) * 4;
+  const cy = p.y - 16 + bob;
+  ctx.save();
+  ctx.translate(p.x, cy);
+  ctx.rotate(Math.sin(t/900 + c) * 0.15);
+  ctx.beginPath();
+  for(let i=0;i<5;i++){
+    const outerAngle = -Math.PI/2 + i*(Math.PI*2/5);
+    const innerAngle = outerAngle + Math.PI/5;
+    const ox = Math.cos(outerAngle)*11, oy = Math.sin(outerAngle)*11;
+    const ix = Math.cos(innerAngle)*4.5, iy = Math.sin(innerAngle)*4.5;
+    if(i===0) ctx.moveTo(ox,oy); else ctx.lineTo(ox,oy);
+    ctx.lineTo(ix,iy);
+  }
+  ctx.closePath();
+  ctx.fillStyle = '#FFC93C';
+  ctx.fill();
+  ctx.strokeStyle = '#E0A619';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawGoalFlag(c,r,t){
+  const p = isoPos(c,r);
+  const bob = Math.sin(t/300) * 3;
+  ctx.strokeStyle = '#7A5230';
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(p.x, p.y+4);
+  ctx.lineTo(p.x, p.y-46+bob);
+  ctx.stroke();
+  ctx.fillStyle = '#FF6F5E';
+  ctx.beginPath();
+  ctx.moveTo(p.x, p.y-46+bob);
+  ctx.lineTo(p.x+26, p.y-40+bob);
+  ctx.lineTo(p.x, p.y-32+bob);
+  ctx.closePath();
+  ctx.fill();
+}
+
+// facing(0〜3)ごとの画面上の進行方向ベクトル（アイソメ表示なので斜め4方向になる）
+const FACE_SCREEN_VEC = [
+  {x:0.87, y:-0.5},  // 0: 右上むき
+  {x:0.87, y:0.5},   // 1: 右下むき
+  {x:-0.87, y:0.5},  // 2: 左下むき
+  {x:-0.87, y:-0.5}  // 3: 左上むき
+];
+
+// 足もとに「靴」を描いて、どちらを向いているかひと目でわかるようにする
+function drawShoes(x, footY, facing){
+  const d = FACE_SCREEN_VEC[facing];
+  const angle = Math.atan2(d.y, d.x);
+  // 左右の足は常に画面上で左右にはなして配置し（＝ふたつとわかるように）、
+  // むきによってつま先の向きだけ回転させる
+  const forwardX = d.x*3;
+  const forwardY = d.y*1.6;
+
+  function shoe(offsetX){
+    const cx = x + offsetX + forwardX;
+    const cy = footY + forwardY;
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(angle);
+    ctx.fillStyle = '#3A4361';
+    roundRect(-6, -4, 13, 8, 4);
+    ctx.fill();
+    ctx.strokeStyle = '#232A40';
+    ctx.lineWidth = 1;
+    roundRect(-6, -4, 13, 8, 4);
+    ctx.stroke();
+    // つま先（進行方向を指す明るいアクセント）
+    ctx.fillStyle = '#FFD75E';
+    ctx.beginPath();
+    ctx.moveTo(4, -4);
+    ctx.lineTo(9, 0);
+    ctx.lineTo(4, 4);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  shoe(-7);
+  shoe(7);
+}
+
+// 頭のてっぺんに帽子をかぶせる。ひさしが進行方向を向くので、目の向きと合わせて
+// どちらを向いているかさらにわかりやすくなる
+function drawHat(x, headTopY, facing){
+  const d = FACE_SCREEN_VEC[facing];
+
+  // ぼうし本体（ドーム）
+  ctx.fillStyle = '#4C8DFF';
+  ctx.beginPath();
+  ctx.arc(x, headTopY+1, 11, Math.PI, 0);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = '#2C63C7';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(x, headTopY+1, 11, Math.PI, 0);
+  ctx.stroke();
+
+  // つば（進行方向を指すひさし）
+  ctx.save();
+  ctx.translate(x + d.x*9, headTopY+1 + d.y*9*0.55);
+  ctx.rotate(Math.atan2(d.y, d.x));
+  ctx.fillStyle = '#2C63C7';
+  ctx.beginPath();
+  ctx.ellipse(0, 0, 8, 3.6, 0, 0, Math.PI*2);
+  ctx.fill();
+  ctx.restore();
+
+  // てっぺんのポンポン
+  ctx.fillStyle = '#FFC93C';
+  ctx.beginPath();
+  ctx.arc(x, headTopY-10, 3.2, 0, Math.PI*2);
+  ctx.fill();
+  ctx.strokeStyle = '#E0A619';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+}
+
+function drawCharacter(x,y,facing,bounce,celebrating){
+  const bodyY = y - 22 - bounce;
+  ctx.fillStyle = 'rgba(0,0,0,0.18)';
+  ctx.beginPath();
+  ctx.ellipse(x, y+4, 16, 6, 0,0,Math.PI*2);
+  ctx.fill();
+
+  drawShoes(x, bodyY+14, facing);
+
+  if(celebrating){
+    ctx.strokeStyle = '#FF6F5E';
+    ctx.lineWidth = 6;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(x-13, bodyY-4);
+    ctx.lineTo(x-23, bodyY-26);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x+13, bodyY-4);
+    ctx.lineTo(x+23, bodyY-26);
+    ctx.stroke();
+    ctx.fillStyle = '#FFC93C';
+    ctx.beginPath(); ctx.arc(x-23, bodyY-26, 4, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(x+23, bodyY-26, 4, 0, Math.PI*2); ctx.fill();
+  }
+
+  ctx.fillStyle = '#FF6F5E';
+  roundRect(x-16, bodyY-14, 32, 28, 8);
+  ctx.fill();
+  ctx.strokeStyle = '#B8493B';
+  ctx.lineWidth = 2;
+  roundRect(x-16, bodyY-14, 32, 28, 8);
+  ctx.stroke();
+
+  ctx.fillStyle = '#FFC93C';
+  roundRect(x-10, bodyY-32, 20, 18, 6);
+  ctx.fill();
+  ctx.strokeStyle = '#D8A518';
+  roundRect(x-10, bodyY-32, 20, 18, 6);
+  ctx.stroke();
+
+  drawHat(x, bodyY-32, facing);
+
+  if(celebrating){
+    ctx.strokeStyle = '#26314D';
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(x-8,bodyY-25); ctx.lineTo(x-5,bodyY-28); ctx.lineTo(x-2,bodyY-25); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x+2,bodyY-25); ctx.lineTo(x+5,bodyY-28); ctx.lineTo(x+8,bodyY-25); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x-5, bodyY-19);
+    ctx.quadraticCurveTo(x, bodyY-14, x+5, bodyY-19);
+    ctx.stroke();
+    return;
+  }
+
+  const d = FACE_SCREEN_VEC[facing];
+  const px = -d.y, py = d.x; // 目を横に並べるための垂直ベクトル
+  const headCenterY = bodyY - 23;
+  const eMidX = x + d.x*3.5;
+  const eMidY = headCenterY + d.y*3.5;
+  ctx.fillStyle = '#26314D';
+  ctx.beginPath(); ctx.arc(eMidX - px*3.5, eMidY - py*3.5, 2.4, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(eMidX + px*3.5, eMidY + py*3.5, 2.4, 0, Math.PI*2); ctx.fill();
+}
+
+function roundRect(x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.arcTo(x+w,y,x+w,y+h,r);
+  ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r);
+  ctx.arcTo(x,y,x+w,y,r);
+  ctx.closePath();
+}
+
+let extraBounce = 0;
+function render(t){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  const order = [];
+  for(let r=0;r<level.rows;r++){
+    for(let c=0;c<level.cols;c++){
+      order.push({c,r});
+    }
+  }
+  order.sort((a,b)=> (a.c+a.r)-(b.c+b.r));
+  order.forEach(o=> drawFloorTile(o.c,o.r));
+
+  const items = [];
+  level.walls.forEach(w=> items.push({c:w[0], r:w[1], type:'wall'}));
+  (level.stars||[]).forEach(s=>{
+    if(!collectedStars.has(starKey(s[0],s[1]))) items.push({c:s[0], r:s[1], type:'star'});
+  });
+  items.push({c:level.goal.c, r:level.goal.r, type:'goal'});
+  items.sort((a,b)=> (a.c+a.r)-(b.c+b.r));
+  items.forEach(it=>{
+    if(it.type==='wall') drawWallCube(it.c,it.r);
+    else if(it.type==='star') drawStarItem(it.c,it.r,t);
+    else drawGoalFlag(it.c,it.r,t);
+  });
+
+  drawCharacter(animPos.x, animPos.y, dir, extraBounce, celebrating);
+}
+
+function loop(t){
+  render(t);
+  requestAnimationFrame(loop);
+}
+
+function sleep(ms){ return new Promise(res=>setTimeout(res,ms)); }
+
+function setCharToTile(c,r){
+  const p = isoPos(c,r);
+  animPos.x = p.x; animPos.y = p.y;
+}
+
+async function animateTo(c,r,arc){
+  const from = isoPos(pos.c,pos.r);
+  const to = isoPos(c,r);
+  const dur = 380;
+  const start = performance.now();
+  await new Promise(resolve=>{
+    function step(now){
+      const p = Math.min(1,(now-start)/dur);
+      const ease = p<0.5 ? 2*p*p : -1+(4-2*p)*p;
+      animPos.x = from.x + (to.x-from.x)*ease;
+      animPos.y = from.y + (to.y-from.y)*ease;
+      extraBounce = arc ? Math.sin(p*Math.PI)*22 : Math.sin(p*Math.PI)*6;
+      if(p<1){ requestAnimationFrame(step); } else { extraBounce=0; resolve(); }
+    }
+    requestAnimationFrame(step);
+  });
+}
+
+async function bump(c,r){
+  const from = isoPos(pos.c,pos.r);
+  const safeC = Math.max(0, Math.min(level.cols-1, c));
+  const safeR = Math.max(0, Math.min(level.rows-1, r));
+  const to = isoPos(safeC,safeR);
+  const dx=(to.x-from.x)*0.25, dy=(to.y-from.y)*0.25;
+  const start = performance.now();
+  await new Promise(resolve=>{
+    function step(now){
+      const p = (now-start)/260;
+      if(p<1){
+        const k = Math.sin(p*Math.PI);
+        animPos.x = from.x + dx*k;
+        animPos.y = from.y + dy*k;
+        requestAnimationFrame(step);
+      } else {
+        animPos.x = from.x; animPos.y = from.y;
+        resolve();
+      }
+    }
+    requestAnimationFrame(step);
+  });
+}
+
+const DIR_VEC = [ {dc:0,dr:-1}, {dc:1,dr:0}, {dc:0,dr:1}, {dc:-1,dr:0} ];
+
+async function doMove(){
+  const v = DIR_VEC[dir];
+  const nc = pos.c+v.dc, nr = pos.r+v.dr;
+  if(!inBounds(nc,nr) || isWall(nc,nr)){
+    await bump(nc,nr);
+    return false;
+  }
+  await animateTo(nc,nr,false);
+  pos = {c:nc,r:nr};
+  collectStarAt(nc,nr);
+  return true;
+}
+
+async function doJump(){
+  const v = DIR_VEC[dir];
+  const nc1 = pos.c+v.dc, nr1 = pos.r+v.dr;
+  if(inBounds(nc1,nr1) && !isWall(nc1,nr1)){
+    await animateTo(nc1,nr1,true);
+    pos = {c:nc1,r:nr1};
+    collectStarAt(nc1,nr1);
+    return true;
+  }
+  const nc2 = pos.c+v.dc*2, nr2 = pos.r+v.dr*2;
+  if(inBounds(nc1,nr1) && isWall(nc1,nr1) && inBounds(nc2,nr2) && !isWall(nc2,nr2)){
+    await animateTo(nc2,nr2,true);
+    pos = {c:nc2,r:nr2};
+    collectStarAt(nc2,nr2);
+    return true;
+  }
+  await bump(nc1,nr1);
+  return false;
+}
+
+async function doTurn(delta){
+  dir = (dir+delta+4)%4;
+  await sleep(160);
+}
+
+function showMessage(text, success){
+  messageEl.textContent = text;
+  messageEl.className = 'message' + (success ? ' success' : '');
+}
+
+function countUsedBlocks(){
+  return scriptArea.querySelectorAll('.block-instance').length;
+}
+
+function starRatingFor(blockCount){
+  const par = level.par || 999;
+  if(blockCount <= par) return 3;
+  if(blockCount <= par + 4) return 2;
+  return 1;
+}
+
+function buildClearMessage(){
+  const blockCount = countUsedBlocks();
+  const rating = starRatingFor(blockCount);
+
+  stageBestRating[currentLevelIndex] = Math.max(stageBestRating[currentLevelIndex] || 0, rating);
+  updateScoreBadge();
+
+  const ratingStr = '⭐'.repeat(rating) + '☆'.repeat(3-rating);
+  let msg = '🎉 やったね！ゴールにとうちゃく！ ' + ratingStr;
+  if(totalStars() > 0) msg += '（⭐ぜんぶ あつめたよ！）';
+
+  const meta = STAGE_META[currentLevelIndex];
+  if(meta && meta.efficiencyChallenge){
+    msg += '\nつかったブロック: ' + blockCount + 'こ（目標: ' + (level.par || '?') + 'こ いない で ⭐3！）';
+    if(rating < 3){
+      msg += '\n✨ まだ みじかく できそう！「くりかえす」や「わざ」を つかって、もっと スッキリ 書けないか ためしてみよう。ファイト！';
+    } else {
+      msg += '\n🏆 かんぺきな こうりつだよ！すごい！';
+    }
+  }
+  return msg;
+}
+
+function checkGoal(){
+  if(pos.c===level.goal.c && pos.r===level.goal.r){
+    if(!allStarsCollected()){
+      if(!hintShownAtGoal){
+        hintShownAtGoal = true;
+        showMessage('🚩 ゴールに ついたけど、⭐が まだ ' + remainingStars() + 'こ のこってるよ！', false);
+      }
+      return false;
+    }
+    goalReached = true;
+    showMessage(buildClearMessage(), true);
+    celebrateAtGoal();
+    return true;
+  }
+  return false;
+}
+
+async function celebrationHop(){
+  const dur = 260;
+  const start = performance.now();
+  await new Promise(resolve=>{
+    function step(now){
+      const p = Math.min(1, (now-start)/dur);
+      extraBounce = Math.sin(p*Math.PI) * 26;
+      if(p<1){ requestAnimationFrame(step); } else { extraBounce = 0; resolve(); }
+    }
+    requestAnimationFrame(step);
+  });
+}
+
+async function celebrateAtGoal(){
+  celebrating = true;
+  for(let i=0;i<3;i++){
+    await celebrationHop();
+    await sleep(70);
+  }
+}
+
+const BLOCK_META = {
+  move:{icon:'⬆️', text:'すすむ'},
+  turnRight:{icon:'↩️', text:'みぎをむく'},
+  turnLeft:{icon:'↪️', text:'ひだりをむく'},
+  jump:{icon:'⤴️', text:'ジャンプ'},
+  repeat:{icon:'🔁', text:'くりかえす'},
+  if:{icon:'❓', text:'もし'},
+  call:{icon:'▶️', text:'わざをよびだす'},
+  setVar:{icon:'🔢', text:'へんすうを'},
+  changeVar:{icon:'🔢', text:'へんすうに'},
+  varValue:{icon:'🔢', text:'へんすう'}
+};
+const CATEGORY_CLASS = {
+  move:'motion', turnRight:'motion', turnLeft:'motion', jump:'motion',
+  repeat:'control', if:'control', call:'function',
+  setVar:'variable', changeVar:'variable', varValue:'variable'
+};
+
+function makeStepper(defaultVal, min, max){
+  const wrap = document.createElement('span');
+  wrap.className = 'repeat-count';
+  const minus = document.createElement('button');
+  minus.textContent = '−';
+  minus.type = 'button';
+  const num = document.createElement('span');
+  num.textContent = String(defaultVal);
+  num.className = 'num-val';
+  const plus = document.createElement('button');
+  plus.textContent = '+';
+  plus.type = 'button';
+  minus.addEventListener('click', (e)=>{ e.stopPropagation(); let v=parseInt(num.textContent); if(v>min) num.textContent = v-1; });
+  plus.addEventListener('click', (e)=>{ e.stopPropagation(); let v=parseInt(num.textContent); if(v<max) num.textContent = v+1; });
+  wrap.appendChild(minus);
+  wrap.appendChild(num);
+  wrap.appendChild(plus);
+  return wrap;
+}
+
+function makeVarChip(){
+  const chip = document.createElement('span');
+  chip.className = 'var-chip';
+  chip.innerHTML = '<span class="lego-icon">🔢</span>へんすう';
+  const del = document.createElement('button');
+  del.className = 'del';
+  del.textContent = '×';
+  del.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    const slot = chip.parentElement;
+    chip.remove();
+    if(slot) slot.appendChild(makeStepper(3,1,10));
+  });
+  chip.appendChild(del);
+  return chip;
+}
+
+const COND_LABEL = {
+  wallAhead: '🧱 ゆくてにかべがある',
+  noWallAhead: '🚶 ゆくてにかべがない'
+};
+
+function makeCondToggle(){
+  const chip = document.createElement('span');
+  chip.className = 'cond-toggle';
+  chip.dataset.cond = 'wallAhead';
+  chip.textContent = COND_LABEL.wallAhead;
+  chip.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    chip.dataset.cond = chip.dataset.cond === 'wallAhead' ? 'noWallAhead' : 'wallAhead';
+    chip.textContent = COND_LABEL[chip.dataset.cond];
+  });
+  return chip;
+}
+
+function createBlockElement(type){
+  const el = document.createElement('div');
+  el.className = 'block-instance ' + CATEGORY_CLASS[type];
+  el.dataset.type = type;
+
+  const studs = document.createElement('span');
+  studs.className = 'studs';
+  studs.innerHTML = '<span></span><span></span>';
+  el.appendChild(studs);
+
+  const icon = document.createElement('span');
+  icon.className = 'lego-icon';
+  const label = document.createElement('span');
+  label.className = 'label';
+
+  const meta = BLOCK_META[type];
+  icon.textContent = meta.icon;
+  label.textContent = meta.text;
+  el.appendChild(icon);
+  el.appendChild(label);
+
+  if(type==='repeat'){
+    const slot = document.createElement('span');
+    slot.className = 'count-slot';
+    slot.appendChild(makeStepper(3,1,10));
+    el.appendChild(slot);
+    el.appendChild(document.createTextNode('かい'));
+
+    const body = document.createElement('div');
+    body.className = 'repeat-body';
+    body.innerHTML = '<div class="empty-hint">ここにブロックを入れてね</div>';
+    el.appendChild(body);
+  } else if(type==='setVar' || type==='changeVar'){
+    el.appendChild(makeStepper(type==='setVar' ? 3 : 1, type==='setVar' ? 0 : -10, 20));
+    el.appendChild(document.createTextNode(type==='setVar' ? 'にする' : 'たす'));
+  } else if(type==='if'){
+    el.appendChild(makeCondToggle());
+    el.appendChild(document.createTextNode('なら'));
+
+    const body = document.createElement('div');
+    body.className = 'repeat-body if-body';
+    body.innerHTML = '<div class="empty-hint">ここにブロックを入れてね</div>';
+    el.appendChild(body);
+  }
+
+  const del = document.createElement('button');
+  del.className = 'del';
+  del.textContent = '×';
+  del.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    const parent = el.parentElement;
+    el.remove();
+    refreshEmptyHints(parent);
+  });
+  el.appendChild(del);
+
+  return el;
+}
+
+function refreshEmptyHints(container){
+  if(!container) return;
+  const hasBlocks = Array.from(container.children).some(c=>c.classList && c.classList.contains('block-instance'));
+  let hint = container.querySelector(':scope > .empty-hint');
+  if(!hasBlocks && !hint){
+    hint = document.createElement('div');
+    hint.className = 'empty-hint';
+    hint.textContent = container.id==='scriptArea' ? '← ここに ブロックをドラッグしてね' : 'ここにブロックを入れてね';
+    container.appendChild(hint);
+  } else if(hasBlocks && hint){
+    hint.remove();
+  }
+}
+
+function findDropzone(x,y){
+  const el = document.elementFromPoint(x,y);
+  if(!el) return null;
+  return el.closest('#scriptArea, #funcBody, .repeat-body, .count-slot');
+}
+
+function computeInsertBefore(zone, y, excludeEl){
+  const children = Array.from(zone.children).filter(c=>
+    c.classList && c.classList.contains('block-instance') && c!==excludeEl
+  );
+  for(const child of children){
+    const rect = child.getBoundingClientRect();
+    if(y < rect.top + rect.height/2) return child;
+  }
+  return null;
+}
+
+let drag = null;
+
+function startDrag(kind, sourceEl, blockType, clientX, clientY){
+  const meta = BLOCK_META[blockType];
+  const ghost = document.createElement('div');
+  ghost.className = 'drag-ghost ' + CATEGORY_CLASS[blockType];
+  ghost.innerHTML = '<span>' + meta.icon + '</span><span>' + meta.text + '</span>';
+  ghost.style.left = clientX + 'px';
+  ghost.style.top = clientY + 'px';
+  document.body.appendChild(ghost);
+
+  drag = { kind, sourceEl, blockType, ghost, dropzone:null };
+
+  if(kind==='script'){
+    sourceEl.style.opacity = '0.35';
+  }
+
+  window.addEventListener('pointermove', onDragMove);
+  window.addEventListener('pointerup', onDragEnd);
+  window.addEventListener('pointercancel', onDragEnd);
+}
+
+function onDragMove(e){
+  if(!drag) return;
+  drag.ghost.style.left = e.clientX + 'px';
+  drag.ghost.style.top = e.clientY + 'px';
+
+  const zone = findDropzone(e.clientX, e.clientY);
+  if(zone !== drag.dropzone){
+    if(drag.dropzone) drag.dropzone.classList.remove('drag-over');
+    if(zone) zone.classList.add('drag-over');
+    drag.dropzone = zone;
+  }
+}
+
+function onDragEnd(e){
+  if(!drag) return;
+  window.removeEventListener('pointermove', onDragMove);
+  window.removeEventListener('pointerup', onDragEnd);
+  window.removeEventListener('pointercancel', onDragEnd);
+
+  drag.ghost.remove();
+  if(drag.dropzone) drag.dropzone.classList.remove('drag-over');
+
+  const zone = drag.dropzone;
+  if(zone && zone.classList.contains('count-slot')){
+    if(drag.kind==='palette' && drag.blockType==='varValue'){
+      zone.innerHTML = '';
+      zone.appendChild(makeVarChip());
+    }
+  } else if(zone && drag.blockType!=='varValue' && !(drag.kind==='script' && (zone===drag.sourceEl || drag.sourceEl.contains(zone)))){
+    const insertBefore = computeInsertBefore(zone, e.clientY, drag.kind==='script' ? drag.sourceEl : null);
+    let oldParent = null;
+    if(drag.kind==='palette'){
+      const newBlock = createBlockElement(drag.blockType);
+      if(insertBefore) zone.insertBefore(newBlock, insertBefore); else zone.appendChild(newBlock);
+    } else {
+      oldParent = drag.sourceEl.parentElement;
+      if(insertBefore) zone.insertBefore(drag.sourceEl, insertBefore); else zone.appendChild(drag.sourceEl);
+    }
+    refreshEmptyHints(zone);
+    if(oldParent && oldParent!==zone) refreshEmptyHints(oldParent);
+  }
+
+  if(drag.kind==='script'){
+    drag.sourceEl.style.opacity = '1';
+  }
+  drag = null;
+}
+
+document.addEventListener('pointerdown', (e)=>{
+  if(drag) return;
+  if(e.target.closest('button') || e.target.classList.contains('resizer')) return;
+
+  const scriptBlock = e.target.closest('.block-instance');
+  if(scriptBlock){
+    e.preventDefault();
+    startDrag('script', scriptBlock, scriptBlock.dataset.type, e.clientX, e.clientY);
+    return;
+  }
+
+  const paletteBlock = e.target.closest('.lego-block');
+  if(paletteBlock){
+    if(paletteBlock.classList.contains('locked')) return; // ロックされているブロックはドラッグ不可
+    e.preventDefault();
+    startDrag('palette', null, paletteBlock.dataset.type, e.clientX, e.clientY);
+  }
+});
+
+function parseScript(container){
+  const nodes = [];
+  Array.from(container.children).forEach(child=>{
+    if(!child.classList || !child.classList.contains('block-instance')) return;
+    const type = child.dataset.type;
+    if(type === 'repeat'){
+      const slot = child.querySelector('.count-slot');
+      const varChip = slot.querySelector('.var-chip');
+      const body = child.querySelector('.repeat-body');
+      if(varChip){
+        nodes.push({type:'repeat', countIsVar:true, body: parseScript(body), el: child});
+      } else {
+        const count = parseInt(slot.querySelector('.num-val').textContent);
+        nodes.push({type:'repeat', count, body: parseScript(body), el: child});
+      }
+    } else if(type === 'setVar' || type === 'changeVar'){
+      const amount = parseInt(child.querySelector('.num-val').textContent);
+      nodes.push({type, amount, el: child});
+    } else if(type === 'if'){
+      const condChip = child.querySelector('.cond-toggle');
+      const cond = condChip ? condChip.dataset.cond : 'wallAhead';
+      const body = child.querySelector('.if-body');
+      nodes.push({type:'if', cond, body: parseScript(body), el: child});
+    } else {
+      nodes.push({type, el: child});
+    }
+  });
+  return nodes;
+}
+
+async function execNode(node){
+  if(goalReached) return true;
+  node.el.classList.add('running');
+  await sleep(90);
+  let ok = true;
+  if(node.type === 'move'){
+    ok = await doMove();
+  } else if(node.type === 'jump'){
+    ok = await doJump();
+  } else if(node.type === 'turnRight'){
+    await doTurn(1);
+  } else if(node.type === 'turnLeft'){
+    await doTurn(3);
+  } else if(node.type === 'repeat'){
+    const count = node.countIsVar ? currentVarValue : node.count;
+    for(let i=0;i<count && ok && !goalReached;i++){
+      for(const child of node.body){
+        ok = await execNode(child);
+        if(!ok || goalReached) break;
+      }
+    }
+  } else if(node.type === 'if'){
+    const v = DIR_VEC[dir];
+    const nc = pos.c+v.dc, nr = pos.r+v.dr;
+    const wallAhead = !inBounds(nc,nr) || isWall(nc,nr);
+    const condMet = (node.cond === 'wallAhead') ? wallAhead : !wallAhead;
+    if(condMet){
+      for(const child of node.body){
+        ok = await execNode(child);
+        if(!ok || goalReached) break;
+      }
+    } else {
+      await sleep(80);
+    }
+  } else if(node.type === 'setVar'){
+    currentVarValue = node.amount;
+    updateVarReadout();
+    await sleep(120);
+  } else if(node.type === 'changeVar'){
+    currentVarValue += node.amount;
+    updateVarReadout();
+    await sleep(120);
+  } else if(node.type === 'varValue'){
+    /* reporter block used as a standalone statement does nothing */
+  } else if(node.type === 'call'){
+    if(callDepth < 20){
+      callDepth++;
+      const funcProgram = parseScript(funcBody);
+      if(funcProgram.length === 0){
+        showMessage('🔧「わざをつくる」に ブロックを入れてから よびだしてね', false);
+      } else {
+        for(const child of funcProgram){
+          ok = await execNode(child);
+          if(!ok || goalReached) break;
+        }
+      }
+      callDepth--;
+    }
+  }
+  node.el.classList.remove('running');
+  if(checkGoal()) return true;
+  if(!ok){
+    showMessage('🧱 ブロックにぶつかったよ！プログラムをなおしてみよう', false);
+  }
+  return ok;
+}
+
+async function runProgram(){
+  if(running) return;
+  running = true;
+  runBtn.disabled = true;
+  showMessage('', false);
+  resetCharacterOnly();
+  const program = parseScript(scriptArea);
+  if(program.length === 0){
+    showMessage('ブロックをおいてからじっこうしてね', false);
+    running = false;
+    runBtn.disabled = false;
+    return;
+  }
+  for(const node of program){
+    const ok = await execNode(node);
+    if(!ok || goalReached) break;
+  }
+  if(!goalReached){
+    const cur = messageEl.textContent;
+    if(!cur) showMessage('とちゅうで止まったよ。ゴールの🚩までブロックを足してみよう', false);
+  }
+  running = false;
+  runBtn.disabled = false;
+}
+
+function resetCharacterOnly(){
+  pos = {c:level.start.c, r:level.start.r};
+  dir = level.start.dir;
+  goalReached = false;
+  celebrating = false;
+  currentVarValue = 0;
+  collectedStars = new Set();
+  hintShownAtGoal = false;
+  updateVarReadout();
+  updateStarReadout();
+  setCharToTile(pos.c,pos.r);
+}
+
+function resetAll(){
+  resetCharacterOnly();
+  showMessage('', false);
+}
+
+function clearScript(){
+  scriptArea.innerHTML = '';
+  refreshEmptyHints(scriptArea);
+}
+
+function clearFuncBody(){
+  funcBody.innerHTML = '';
+  refreshEmptyHints(funcBody);
+}
+
+function updatePaletteLocks(stageIndex){
+  const stageNum = stageIndex + 1;
+  const paletteBlocks = document.querySelectorAll('.palette-blocks .lego-block');
+  paletteBlocks.forEach(block => {
+    const minStage = parseInt(block.dataset.minStage || '1', 10);
+    if(stageNum < minStage){
+      block.classList.add('locked');
+    } else {
+      block.classList.remove('locked');
+    }
+  });
+
+  // ステージに応じて専用エリアの表示/非表示を切り替え
+  if(stageNum >= 5){
+    if(varReadoutEl) varReadoutEl.style.display = 'block';
+  } else {
+    if(varReadoutEl) varReadoutEl.style.display = 'none';
+  }
+
+  if(stageNum >= 6){
+    if(funcEditor) funcEditor.style.display = 'flex';
+  } else {
+    if(funcEditor) funcEditor.style.display = 'none';
+  }
+}
+
+function loadLevel(index){
+  currentLevelIndex = index;
+  const meta = STAGE_META[index];
+  level = generateLevel(index);
+  resetCharacterOnly();
+  showMessage('', false);
+  if(meta.efficiencyChallenge){
+    goalTextEl.textContent = '🏆 ゴールの旗まで進もう！ 目標: ブロック ' + (level.par || '?') + ' こ いないで クリア（⭐3をめざそう）';
+  } else {
+    goalTextEl.textContent = level.hint
+      ? ('🚩 ' + level.hint)
+      : '🚩 ゴールの旗までロボットを動かそう！（' + level.name + '）';
+  }
+  Array.from(stageTabsEl.children).forEach((tab,i)=>{
+    tab.classList.toggle('active', i===index);
+  });
+  clearScript();
+  clearFuncBody();
+  updatePaletteLocks(index);
+
+  if(solutionBtn){
+    solutionBtn.style.display = (meta.showSolution && level.solutionPath) ? 'inline-block' : 'none';
+  }
+
+  if(!viewedStages.has(index)){
+    viewedStages.add(index);
+    setTimeout(openTutorial, 300);
+  }
+}
+
+function openTutorial(){
+  tutorialTitle.textContent = '📘 ' + level.name + ' の あそびかた';
+  tutorialList.innerHTML = '';
+  (level.tutorial || []).forEach(item=>{
+    const div = document.createElement('div');
+    div.className = 'tutorial-item';
+    const icon = document.createElement('span');
+    icon.className = 't-icon';
+    icon.textContent = item.icon;
+    const text = document.createElement('span');
+    text.className = 't-text';
+    text.textContent = item.text;
+    div.appendChild(icon);
+    div.appendChild(text);
+    tutorialList.appendChild(div);
+  });
+  tutorialOverlay.classList.remove('hidden');
+}
+
+function closeTutorial(){
+  tutorialOverlay.classList.add('hidden');
+}
+
+tutorialBtn.addEventListener('click', openTutorial);
+tutorialCloseBtn.addEventListener('click', closeTutorial);
+tutorialOkBtn.addEventListener('click', closeTutorial);
+tutorialOverlay.addEventListener('click', (e)=>{
+  if(e.target === tutorialOverlay) closeTutorial();
+});
+
+// --- 「さいてきかいとうを見る」モーダル ---
+const ACTION_LABEL = {
+  move:'⬆️ すすむ',
+  turnRight:'↩️ みぎをむく',
+  turnLeft:'↪️ ひだりをむく',
+  jump:'⤴️ ジャンプ'
+};
+
+function buildSolutionExplanation(){
+  if(!level.solutionPath || !level.solutionPath.actions || level.solutionPath.actions.length===0) return null;
+  const actions = level.solutionPath.actions;
+
+  // 同じうごきが連続している部分を「くりかえす」でまとめられることに気づかせるため、
+  // 連続する同じアクションをグループ化する
+  const groups = [];
+  for(const a of actions){
+    const last = groups[groups.length-1];
+    if(last && last.action===a){
+      last.count++;
+    } else {
+      groups.push({action:a, count:1});
+    }
+  }
+
+  const lines = groups.map((g,i)=>{
+    const label = ACTION_LABEL[g.action] || g.action;
+    if(g.count>=2){
+      return (i+1) + '. 🔁 「' + label + '」を ' + g.count + 'かい くりかえす';
+    }
+    return (i+1) + '. ' + label;
+  });
+
+  return {
+    lines,
+    rawCount: actions.length,
+    compressedBlockCount: groups.length
+  };
+}
+
+function openSolution(){
+  const info = buildSolutionExplanation();
+  if(!info) return;
+  solutionTitle.textContent = '💡 ' + level.name + ' の さいてきかいとうヒント';
+  solutionList.innerHTML = '';
+  info.lines.forEach(line=>{
+    const div = document.createElement('div');
+    div.className = 'tutorial-item';
+    const text = document.createElement('span');
+    text.className = 't-text';
+    text.textContent = line;
+    div.appendChild(text);
+    solutionList.appendChild(div);
+  });
+  solutionNote.textContent = 'そのまま うごかすと ' + info.rawCount + 'かいの うごき だけど、「くりかえす」でまとめると やく ' + info.compressedBlockCount + 'こ の ブロックで つくれるよ！じぶんの プログラムと くらべて、もっと みじかく できないか かんがえてみよう。';
+  solutionOverlay.classList.remove('hidden');
+}
+
+function closeSolution(){
+  solutionOverlay.classList.add('hidden');
+}
+
+if(solutionBtn) solutionBtn.addEventListener('click', openSolution);
+solutionCloseBtn.addEventListener('click', closeSolution);
+solutionOkBtn.addEventListener('click', closeSolution);
+solutionOverlay.addEventListener('click', (e)=>{
+  if(e.target === solutionOverlay) closeSolution();
+});
+
+funcClearBtn.addEventListener('click', clearFuncBody);
+
+STAGE_META.forEach((lv,i)=>{
+  const tab = document.createElement('button');
+  tab.className = 'stage-tab' + (i===0 ? ' active' : '');
+  tab.textContent = lv.name;
+  tab.addEventListener('click', ()=> loadLevel(i));
+  stageTabsEl.appendChild(tab);
+});
+
+runBtn.addEventListener('click', runProgram);
+resetBtn.addEventListener('click', resetAll);
+clearBtn.addEventListener('click', clearScript);
+
+updateScoreBadge();
+loadLevel(0);
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
