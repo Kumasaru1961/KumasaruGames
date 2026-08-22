@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>だるまさんがころんだゲーム</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #111;
+            color: #fff;
+            font-family: sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            overflow: hidden;
+            touch-action: manipulation;
+        }
+        canvas {
+            border: 4px solid #fff;
+            background: #5a9e5a;
+            box-shadow: 0 0 20px rgba(0,0,0,0.8);
+            width: 100vw;
+            height: 62vh;
+            max-width: 800px;
+            object-fit: contain;
+        }
+        #controls {
+            display: flex;
+            gap: 6px;
+            margin-top: 6px;
+            flex-wrap: wrap;
+            justify-content: center;
+            max-width: 800px;
+            padding: 0 10px;
+        }
+        .action-btn {
+            padding: 8px 12px;
+            font-size: 13px;
+            font-weight: bold;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="gameCanvas" width="800" height="700"></canvas>
+    
+    <div id="controls"></div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+let gameState = 'TUTORIAL';
+let playerTurn = false; 
+
+let currentLevel = 1; 
+let npcs = [];
+let menuSelection = 0; 
+
+const names = ['ミク', 'タロウ', 'カオリ', 'ケン', 'ユウキ', 'サクラ', 'ダイスケ', 'ハルカ', 'ショウ', 'リン'];
+const colors = ['#e74c3c', '#3498db', '#9b59b6', '#f1c40f', '#1abc9c', '#e67e22', '#34495e', '#e84393', '#00b894', '#fdcb6e'];
+
+let audioCtx = null;
+let bgmTimer = null;
+let noteIndex = 0;
+const melody = [
+    523.25, 659.25, 783.99, 1046.50,  
+    783.99, 659.25, 523.25, 587.33,   
+    659.25, 587.33, 523.25, 440.00,   
+    523.25, 587.33, 659.25, 523.25    
+];
+
+function initAudio() {
+    if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+    }
+}
+
+function playBGMNote() {
+    if (gameState === 'TUTORIAL' || !audioCtx) return;
+
+    let osc = audioCtx.createOscillator();
+    let gain = audioCtx.createGain();
+
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(melody[noteIndex], audioCtx.currentTime);
+
+    gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2);
+
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.22);
+
+    noteIndex = (noteIndex + 1) % melody.length;
+}
+
+function startBGM() {
+    initAudio();
+    stopBGM();
+    bgmTimer = setInterval(playBGMNote, 180);
+}
+
+function stopBGM() {
+    if (bgmTimer) {
+        clearInterval(bgmTimer);
+        bgmTimer = null;
+    }
+}
+
+function initLevel() {
+    npcs = [];
+    let count = Math.min(3 + currentLevel, 10);
+    
+    for (let i = 0; i < count; i++) {
+        let idStr = (i + 1).toString();
+        let levelBonus = (currentLevel >= 3) ? (currentLevel - 2) * 0.12 : 0;
+        let randomSpeed = Math.random() * 0.35 + 0.2 + levelBonus; 
+
+        let posX = 100 + (600 / (count + 1)) * (i + 1);
+
+        npcs.push({
+            x: posX,
+            y: 600,
+            startY: 600,
+            id: idStr,
+            name: names[i],
+            speed: randomSpeed,
+            color: colors[i],
+            state: 'free' 
+        });
+    }
+    updateControlButtons();
+}
+
+function updateControlButtons() {
+    const controlsDiv = document.getElementById('controls');
+    controlsDiv.innerHTML = '';
+    npcs.forEach(npc => {
+        let btn = document.createElement('button');
+        btn.className = 'action-btn';
+        btn.style.backgroundColor = npc.color;
+        if(npc.color === '#f1c40f' || npc.color === '#fdcb6e') btn.style.color = '#333';
+        btn.innerText = `${npc.id}番:${npc.name}`;
+        btn.onclick = () => handleCatch(npc.id);
+        controlsDiv.appendChild(btn);
+    });
+}
+
+let currentSpeech = { text: "ゲームスタートを押してください", speaker: "操作案内" };
+let stepsLeft = 3; 
+let endMessage = "";
+let isWin = false; 
+
+let forwardTimer = 0;
+let catchTimer = 0;
+const CATCH_TIME_LIMIT = 30; 
+
+function speakDaruma(callback) {
+    if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        let utterance = new SpeechSynthesisUtterance("だーるまさんが、こーろんだ");
+        utterance.lang = 'ja-JP';
+        utterance.rate = 0.9;
+        utterance.onend = () => { if (callback) callback(); };
+        window.speechSynthesis.speak(utterance);
+    } else {
+        if (callback) callback();
+    }
+}
+
+function speakText(text) {
+    if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        let utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'ja-JP';
+        utterance.rate = 1.1;
+        window.speechSynthesis.speak(utterance);
+    }
+}
+
+function setSpeech(speaker, text, doSpeak = true) {
+    currentSpeech.speaker = speaker;
+    currentSpeech.text = text;
+    if (doSpeak) speakText(text);
+}
+
+function startMovingPhase() {
+    playerTurn = false;
+    setSpeech("あなた（鬼）", "だるまさんがころんだ！", false);
+    
+    speakDaruma(() => {
+        playerTurn = true;
+        catchTimer = CATCH_TIME_LIMIT; 
+
+        const freeNpcs = npcs.filter(n => n.state === 'free');
+        let nobodyMoves = (Math.random() < 0.15); // 全員止まる確率を少し下げる
+
+        freeNpcs.forEach(npc => {
+            if (nobodyMoves) {
+                npc.isCaughtTarget = false;
+            } else {
+                // ゴールに近づく（yが小さくなる。初期600、ゴール160）ほど❗が出やすくなるように調整
+                // 進捗度 (0.0 〜 1.0) を計算
+                let progress = 1.0 - (npc.y - 160) / (600 - 160);
+                if (progress < 0) progress = 0;
+                if (progress > 1) progress = 1;
+
+                // 近くにいるほど確率がアップ（最大で約85%〜90%動く）
+                let dynamicProb = 0.4 + (progress * 0.5); 
+                npc.isCaughtTarget = Math.random() < dynamicProb;
+            }
+        });
+
+        if (!nobodyMoves) {
+            let anyMoving = freeNpcs.some(n => n.isCaughtTarget);
+            if (!anyMoving && freeNpcs.length > 0) {
+                let randIndex = Math.floor(Math.random() * freeNpcs.length);
+                freeNpcs[randIndex].isCaughtTarget = true;
+            }
+        }
+
+        let movingCount = freeNpcs.filter(n => n.isCaughtTarget).length;
+        if (movingCount > 0) {
+            setSpeech("あなた（鬼）", `（振り返った！誰かが動いている！）`, false);
+        } else {
+            setSpeech("あなた（鬼）", `（振り返った！全員ピタッと止まっている…）`, false);
+        }
+    });
+}
+
+function update() {
+    if (gameState === 'PLAYING') {
+        if (!playerTurn) {
+            npcs.forEach(npc => {
+                if (npc.state === 'free' && npc.y > 160) {
+                    npc.y -= npc.speed;
+                }
+                
+                if (npc.state === 'free' && npc.y <= 160) {
+                    let caughtList = npcs.filter(n => n.state === 'caught');
+                    if (caughtList.length > 0) {
+                        setSpeech("システム", `${npc.name}がゴールに到達！捕まっていた仲間を全員解放した！`);
+                        npcs.forEach(n => {
+                            n.y = n.startY;
+                            n.state = 'free';
+                        });
+                        startMovingPhase();
+                    } else {
+                        gameState = 'GAME_OVER';
+                        stopBGM();
+                        isWin = false;
+                        menuSelection = 0;
+                        endMessage = `${npc.name}がゴールに到達した！【 鬼の負け 】`;
+                        setSpeech("システム", endMessage);
+                    }
+                }
+
+                if (npc.state === 'free') {
+                    npcs.forEach(caughtNpc => {
+                        if (caughtNpc.state === 'caught') {
+                            let dist = Math.hypot(npc.x - caughtNpc.x, npc.y - caughtNpc.y);
+                            if (dist < 30) {
+                                caughtNpc.state = 'escaping';
+                                setSpeech(npc.name, "切った！");
+                                gameState = 'ESCAPING';
+                            }
+                        }
+                    });
+                }
+            });
+        } else {
+            catchTimer--;
+            if (catchTimer <= 0) {
+                startMovingPhase();
+            }
+        }
+    } else if (gameState === 'ESCAPING') {
+        npcs.forEach(npc => {
+            if (npc.state === 'escaping' || npc.state === 'caught') {
+                npc.state = 'escaping';
+                npc.y += 2.0; 
+                if (npc.y <= 130) {
+                    gameState = 'GAME_OVER';
+                    stopBGM();
+                    isWin = false;
+                    menuSelection = 0;
+                    endMessage = `${npc.name}が鬼の背中をタッチした！【 鬼の負け 】`;
+                    setSpeech("システム", endMessage);
+                }
+            }
+        });
+    }
+}
+
+function draw() {
+    ctx.fillStyle = '#7bc67b';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 3;
+    ctx.setLineDash([10, 10]);
+    ctx.beginPath();
+    ctx.moveTo(50, 580);
+    ctx.lineTo(750, 580);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.fillStyle = '#fff';
+    ctx.font = '14px sans-serif';
+    ctx.fillText("スタートライン", 60, 570);
+
+    ctx.fillStyle = '#2c3e50';
+    ctx.beginPath();
+    ctx.arc(400, 90, 24, 0, Math.PI * 2);
+    ctx.fill();
+
+    if (playerTurn) {
+        ctx.fillStyle = '#ffcc00';
+        ctx.beginPath();
+        ctx.arc(400, 94, 11, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#000';
+        ctx.fillRect(394, 91, 2, 2);
+        ctx.fillRect(403, 91, 2, 2);
+
+        ctx.fillStyle = '#e74c3c';
+        ctx.fillRect(350, 125, (catchTimer / CATCH_TIME_LIMIT) * 100, 6);
+        ctx.strokeStyle = '#fff';
+        ctx.strokeRect(350, 125, 100, 6);
+    } else {
+        ctx.fillStyle = '#e67e22';
+        ctx.beginPath();
+        ctx.arc(400, 85, 11, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    ctx.fillStyle = '#fff';
+    ctx.font = '14px sans-serif';
+    ctx.fillText(`【 鬼 (Lv.${currentLevel}) 】`, 335, 50);
+
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+    ctx.beginPath();
+    ctx.roundRect(80, 145, 640, 50, 12);
+    ctx.fill();
+    ctx.strokeStyle = '#2c3e50';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.fillStyle = '#e74c3c';
+    ctx.font = 'bold 13px sans-serif';
+    ctx.fillText(`[ ${currentSpeech.speaker} ]`, 95, 165);
+
+    ctx.fillStyle = '#2c3e50';
+    ctx.font = 'bold 17px sans-serif';
+    ctx.fillText(currentSpeech.text, 95, 187);
+
+    npcs.forEach(npc => {
+        if (npc.state === 'caught') return; 
+
+        ctx.fillStyle = npc.color;
+        ctx.beginPath();
+        ctx.arc(npc.x, npc.y, 18, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        if (playerTurn) {
+            ctx.fillStyle = '#ffe0bd';
+            ctx.beginPath();
+            ctx.arc(npc.x, npc.y, 9, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.fillStyle = '#000';
+            ctx.fillRect(npc.x - 3, npc.y - 3, 2, 2);
+            ctx.fillRect(npc.x + 2, npc.y - 3, 2, 2);
+
+            if (npc.isCaughtTarget) {
+                ctx.fillStyle = '#e74c3c';
+                ctx.font = 'bold 20px sans-serif';
+                ctx.fillText("❗", npc.x - 7, npc.y - 22);
+            }
+        }
+
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 12px sans-serif';
+        ctx.fillText(`[${npc.id}]`, npc.x - 12, npc.y + 30);
+    });
+
+    let caughtXOffset = 250;
+    npcs.forEach(npc => {
+        if (npc.state === 'caught') {
+            ctx.fillStyle = npc.color;
+            ctx.beginPath();
+            ctx.arc(caughtXOffset, 125, 11, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            ctx.fillStyle = '#fff';
+            ctx.font = '10px sans-serif';
+            ctx.fillText(`${npc.id}:${npc.name}`, caughtXOffset - 15, 148);
+            caughtXOffset += 45;
+        }
+    });
+
+    if (gameState === 'ESCAPING') {
+        ctx.fillStyle = 'rgba(0,0,0,0.7)';
+        ctx.fillRect(0,0,800,700);
+
+        ctx.fillStyle = '#c0392b';
+        ctx.fillRect(250, 300, 300, 65);
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(250, 300, 300, 65);
+
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 24px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText("「ストップ！」を叫ぶ", 400, 342);
+        ctx.textAlign = 'left';
+    }
+
+    if (gameState === 'TUTORIAL') {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.9)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.fillStyle = '#f1c40f';
+        ctx.font = 'bold 32px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText("だるまさんがころんだゲーム", 400, 110);
+
+        ctx.fillStyle = '#fff';
+        ctx.font = '15px sans-serif';
+        ctx.fillText("1. 子どもたちの進む速さは、一人ひとりランダムに違います！", 400, 180);
+        ctx.fillText("2. レベル3からは全体スピードもアップしてさらにドキドキ！", 400, 220);
+        ctx.fillText("3. 動いている子（❗）のボタンをタップして全員捕まえよう。", 400, 260);
+
+        ctx.fillStyle = '#e74c3c';
+        ctx.fillRect(300, 340, 200, 50);
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(300, 340, 200, 50);
+
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 18px sans-serif';
+        ctx.fillText("ゲームスタート", 400, 372);
+
+        ctx.fillStyle = '#aaa';
+        ctx.font = '12px sans-serif';
+        ctx.textAlign = 'right';
+        ctx.fillText("Produced by 3DKoubou-Saru", 780, 675);
+
+        ctx.textAlign = 'left';
+    }
+
+    if (gameState === 'GAME_OVER') {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.fillStyle = isWin ? '#2ecc71' : '#e74c3c';
+        ctx.font = 'bold 36px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(isWin ? `STAGE CLEAR! (Lv.${currentLevel})` : "GAME OVER", 400, 200);
+
+        ctx.fillStyle = '#fff';
+        ctx.font = '16px sans-serif';
+        ctx.fillText(endMessage, 400, 265);
+
+        ctx.fillStyle = '#2ecc71';
+        ctx.fillRect(200, 350, 180, 55);
+        ctx.strokeStyle = (menuSelection === 0) ? '#fff' : '#2ecc71';
+        ctx.lineWidth = (menuSelection === 0) ? 5 : 2;
+        ctx.strokeRect(200, 350, 180, 55);
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 20px sans-serif';
+        ctx.fillText(isWin ? "次のレベル" : "リトライ", 290, 384);
+
+        ctx.fillStyle = '#c0392b';
+        ctx.fillRect(420, 350, 180, 55);
+        ctx.strokeStyle = (menuSelection === 1) ? '#fff' : '#c0392b';
+        ctx.lineWidth = (menuSelection === 1) ? 5 : 2;
+        ctx.strokeRect(420, 350, 180, 55);
+        ctx.fillStyle = '#fff';
+        ctx.fillText("終了", 510, 384);
+
+        ctx.textAlign = 'left';
+    }
+}
+
+function handleCatch(id) {
+    if (gameState === 'PLAYING' && playerTurn) {
+        npcs.forEach(npc => {
+            if (npc.state === 'free' && npc.id === id) {
+                if (npc.isCaughtTarget) {
+                    npc.state = 'caught';
+                    setSpeech("あなた（鬼）", `${npc.id}番の${npc.name}を捕まえた！`);
+                    
+                    let allCaught = npcs.every(n => n.state === 'caught');
+                    if (allCaught) {
+                        gameState = 'GAME_OVER';
+                        stopBGM();
+                        isWin = true;
+                        menuSelection = 0;
+                        currentLevel++; 
+                        endMessage = `全員捕まえた！レベルアップ！(現在Lv.${currentLevel})`;
+                        setSpeech("システム", endMessage);
+                    } else {
+                        startMovingPhase();
+                    }
+                } else {
+                    setSpeech("あなた（鬼）", `${npc.id}番の${npc.name}は止まっていた！`);
+                }
+            }
+        });
+    }
+}
+
+window.addEventListener('keydown', (e) => {
+    if (gameState === 'TUTORIAL') {
+        if (e.code === 'Enter' || e.code === 'Space') {
+            gameState = 'PLAYING';
+            initLevel();
+            startBGM(); 
+            startMovingPhase();
+        }
+        return;
+    }
+
+    if (gameState === 'GAME_OVER') {
+        if (e.code === 'ArrowLeft' || e.code === 'ArrowRight') {
+            menuSelection = 1 - menuSelection;
+        } else if (e.code === 'Enter') {
+            if (menuSelection === 0) {
+                gameState = 'PLAYING';
+                stepsLeft = 3;
+                if (!isWin) {
+                    currentLevel = 1;
+                }
+                isWin = false;
+                initLevel();
+                startBGM(); 
+                startMovingPhase();
+            } else {
+                alert("ゲームを終了します。このタブを閉じてください。");
+            }
+        }
+        return;
+    }
+
+    if (gameState === 'ESCAPING') {
+        if (e.code === 'Space') {
+            gameState = 'STOP_MOVE';
+            setSpeech("あなた（鬼）", "ストップ！");
+        }
+        return;
+    }
+
+    if (gameState === 'STOP_MOVE') {
+        if (e.code === 'Enter' || e.code === 'Space') {
+            stepsLeft--;
+            if (stepsLeft <= 0) {
+                let touched = false;
+                let targetName = "";
+                npcs.forEach(npc => {
+                    let dist = Math.hypot(400 - npc.x, 90 - npc.y);
+                    if (dist < 200) {
+                        touched = true;
+                        targetName = npc.name;
+                    }
+                });
+
+                gameState = 'GAME_OVER';
+                stopBGM();
+                menuSelection = 0;
+                if (touched) {
+                    isWin = true;
+                    currentLevel++;
+                    endMessage = `タッチ成功！レベルアップ！(Lv.${currentLevel})`;
+                } else {
+                    isWin = false;
+                    currentLevel = 1;
+                    endMessage = "誰もタッチできなかった！【 鬼の負け 】";
+                }
+                setSpeech("システム", endMessage);
+            }
+        }
+        return;
+    }
+
+    if (gameState === 'PLAYING' && playerTurn) {
+        let validKeys = npcs.map(n => n.id);
+        if (validKeys.includes(e.key)) {
+            handleCatch(e.key);
+        }
+    }
+});
+
+canvas.addEventListener('click', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    if (gameState === 'TUTORIAL') {
+        if (mouseX >= 300 && mouseX <= 500 && mouseY >= 340 && mouseY <= 390) {
+            gameState = 'PLAYING';
+            initLevel();
+            startBGM(); 
+            startMovingPhase();
+        }
+        return;
+    }
+
+    if (gameState === 'GAME_OVER') {
+        if (mouseX >= 200 && mouseX <= 380 && mouseY >= 350 && mouseY <= 405) {
+            gameState = 'PLAYING';
+            stepsLeft = 3;
+            if (!isWin) {
+                currentLevel = 1;
+            }
+            isWin = false;
+            initLevel();
+            startBGM(); 
+            startMovingPhase();
+        } else if (mouseX >= 420 && mouseX <= 600 && mouseY >= 350 && mouseY <= 405) {
+            alert("ゲームを終了します。このタブを閉じてください。");
+        }
+        return;
+    }
+
+    if (gameState === 'ESCAPING') {
+        if (mouseX >= 250 && mouseX <= 550 && mouseY >= 300 && mouseY <= 365) {
+            gameState = 'STOP_MOVE';
+            setSpeech("あなた（鬼）", "ストップ！");
+        }
+        return;
+    }
+});
+
+function loop() {
+    update();
+    draw();
+    requestAnimationFrame(loop);
+}
+
+initLevel();
+loop();
+</script>
+
+</body>
+</html>
