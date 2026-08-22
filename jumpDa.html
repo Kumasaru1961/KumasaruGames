@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>3レーン本格ハードル走・スマホ対応版</title>
+    <style>
+        body {
+            margin: 0;
+            background-color: #1a1a2e;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            color: white;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            flex-direction: column;
+            touch-action: manipulation; /* スマホのダブルタップ拡大などを防止 */
+        }
+        h1 {
+            margin: 0 0 5px 0;
+            font-size: 22px;
+            letter-spacing: 1px;
+        }
+        p {
+            color: #a0a0c0;
+            font-size: 13px;
+            margin: 0 0 10px 0;
+        }
+        canvas {
+            border: 3px solid #4a4a75;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            border-radius: 8px;
+            background-color: #16213e;
+            max-width: 100%;
+            height: auto;
+        }
+        /* スマホ用コントロールボタンのスタイル */
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            width: 350px;
+            max-width: 95vw;
+            margin-top: 15px;
+        }
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .btn {
+            background-color: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: bold;
+            width: 75px;
+            height: 50px;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .btn:active {
+            background-color: #2563eb;
+            transform: translateY(2px);
+        }
+        .btn-jump {
+            background-color: #22c55e;
+            width: 130px;
+            height: 108px;
+            font-size: 20px;
+        }
+        .btn-jump:active {
+            background-color: #16a34a;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>3レーンハードル走</h1>
+    <p>スマホのボタン、またはPCの矢印・スペースキーで操作！</p>
+    <canvas id="gameCanvas" width="750" height="300"></canvas>
+
+    <!-- スマホ用タッチボタン -->
+    <div class="controls">
+        <div class="control-group">
+            <button class="btn" id="btnUp">▲ 上</button>
+            <button class="btn" id="btnDown">▼ 下</button>
+        </div>
+        <div>
+            <button class="btn btn-jump" id="btnJump">JUMP</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+
+        let gameState = "ready";
+        let score = 0;
+        let level = 1;
+        let stageType = "stadium";
+
+        const lanes = [135, 195, 255];
+        let referee = { x: 80, y: 265 };
+
+        let player = {
+            x: 100,
+            laneIndex: 1,
+            y: lanes[1],
+            width: 34,
+            height: 44,
+            vy: 0,
+            jumpPower: -11,
+            gravity: 0.55,
+            isJumping: false,
+            animFrame: 0
+        };
+
+        let obstacle = {
+            x: 800,
+            laneIndex: 1,
+            width: 30,
+            height: 35,
+            speed: 5,
+            type: "hurdle",
+            passed: false
+        };
+
+        let messageText = "画面をクリックしてレース開始！";
+        let mouseX = 0, mouseY = 0;
+
+        // ピストル音
+        function playPistolSound() {
+            try {
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const bufferSize = audioCtx.sampleRate * 0.3;
+                const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+                const noise = audioCtx.createBufferSource();
+                noise.buffer = buffer;
+                const filter = audioCtx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.setValueAtTime(1000, audioCtx.currentTime);
+                filter.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.3);
+                const gain = audioCtx.createGain();
+                gain.gain.setValueAtTime(1.0, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+                noise.connect(filter);
+                filter.connect(gain);
+                gain.connect(audioCtx.destination);
+                noise.start();
+            } catch(e) {}
+        }
+
+        // 音声合成
+        function speakText(text, callback) {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                let utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'ja-JP';
+                utterance.rate = 1.1;
+                if (callback) utterance.onend = callback;
+                window.speechSynthesis.speak(utterance);
+            } else if (callback) callback();
+        }
+
+        function spawnObstacle() {
+            obstacle.x = 800;
+            obstacle.laneIndex = Math.floor(Math.random() * 3);
+            obstacle.passed = false;
+
+            if (stageType === "stadium") {
+                obstacle.type = "hurdle";
+                obstacle.width = 30;
+                obstacle.height = 35;
+            } else {
+                let types = ["rock", "car", "train", "giant", "hurdle"];
+                if (level < 2) {
+                    types = ["rock", "car", "hurdle"];
+                }
+                obstacle.type = types[Math.floor(Math.random() * types.length)];
+
+                if (obstacle.type === "giant") {
+                    obstacle.width = 45;
+                    obstacle.height = 85;
+                } else if (obstacle.type === "train") {
+                    obstacle.width = 150;
+                    obstacle.height = 42;
+                } else if (obstacle.type === "car") {
+                    obstacle.width = 50;
+                    obstacle.height = 30;
+                } else if (obstacle.type === "rock") {
+                    obstacle.width = 32;
+                    obstacle.height = 28;
+                } else {
+                    obstacle.width = 30;
+                    obstacle.height = 35;
+                }
+            }
+        }
+
+        function startRaceSequence() {
+            if (gameState !== "ready") return;
+
+            score = 0;
+            level = 1;
+            stageType = "stadium";
+            obstacle.speed = 5;
+            player.laneIndex = 1;
+            player.y = lanes[1];
+            player.vy = 0;
+            player.isJumping = false;
+            spawnObstacle();
+            obstacle.x = 800;
+
+            gameState = "onYourMarks";
+            messageText = "位置について…";
+
+            speakText("位置について", () => {
+                setTimeout(() => {
+                    gameState = "set";
+                    messageText = "よーい…";
+                    speakText("よーい", () => {
+                        let randomDelay = 400 + Math.random() * 800;
+                        setTimeout(() => {
+                            gameState = "running";
+                            messageText = "";
+                            playPistolSound();
+                            speakText("ドン！");
+                            loop();
+                        }, randomDelay);
+                    });
+                }, 800);
+            });
+
+            loop();
+        }
+
+        function resetGame() {
+            score = 0;
+            level = 1;
+            stageType = "stadium";
+            obstacle.speed = 5;
+            player.laneIndex = 1;
+            player.y = lanes[1];
+            player.vy = 0;
+            player.isJumping = false;
+            spawnObstacle();
+            gameState = "running";
+            loop();
+        }
+
+        // 動作アクションの共通化関数
+        function actionUp() {
+            if (gameState === "running" && player.laneIndex > 0) {
+                player.laneIndex--;
+            }
+        }
+
+        function actionDown() {
+            if (gameState === "running" && player.laneIndex < 2) {
+                player.laneIndex++;
+            }
+        }
+
+        function actionJumpOrStart() {
+            if (gameState === "ready") {
+                startRaceSequence();
+            } else if (gameState === "running") {
+                if (!player.isJumping) {
+                    player.vy = player.jumpPower;
+                    player.isJumping = true;
+                }
+            } else if (gameState === "gameover") {
+                resetGame();
+            }
+        }
+
+        // キーボード操作
+        window.addEventListener("keydown", (e) => {
+            if (e.code === "ArrowUp") {
+                e.preventDefault();
+                actionUp();
+            } else if (e.code === "ArrowDown") {
+                e.preventDefault();
+                actionDown();
+            } else if (e.code === "Space") {
+                e.preventDefault();
+                actionJumpOrStart();
+            }
+        });
+
+        // スマホ画面のボタン操作 (タッチ・クリック対応)
+        document.getElementById("btnUp").addEventListener("click", actionUp);
+        document.getElementById("btnDown").addEventListener("click", actionDown);
+        document.getElementById("btnJump").addEventListener("click", actionJumpOrStart);
+
+        // キャンバスをクリックした時もスタートやリトライに利用
+        canvas.addEventListener("click", (e) => {
+            const rect = canvas.getBoundingClientRect();
+            mouseX = e.clientX - rect.left;
+            mouseY = e.clientY - rect.top;
+
+            if (gameState === "ready") {
+                startRaceSequence();
+            } else if (gameState === "gameover") {
+                if (mouseX >= 230 && mouseX <= 370 && mouseY >= 170 && mouseY <= 210) {
+                    resetGame();
+                } else if (mouseX >= 380 && mouseX <= 520 && mouseY >= 170 && mouseY <= 210) {
+                    gameState = "ready";
+                    messageText = "画面をクリックしてレース開始！";
+                    draw();
+                }
+            }
+        });
+
+        function update() {
+            if (gameState !== "running") return;
+
+            player.animFrame += 0.25;
+
+            let targetY = lanes[player.laneIndex];
+            player.y += (targetY - player.y) * 0.3;
+
+            player.vy += player.gravity;
+            player.jumpY = (player.jumpY || 0) + player.vy;
+            if (player.jumpY > 0) {
+                player.jumpY = 0;
+                player.vy = 0;
+                player.isJumping = false;
+            }
+
+            obstacle.x -= obstacle.speed;
+
+            if (obstacle.x < -180) {
+                spawnObstacle();
+            }
+
+            if (!obstacle.passed && obstacle.x + obstacle.width < player.x) {
+                obstacle.passed = true;
+                score += 200;
+
+                if (score >= 3000 && stageType === "stadium") {
+                    stageType = "outside";
+                }
+
+                level = Math.floor(score / 1000) + 1;
+
+                if (level === 1) obstacle.speed = 5.0;
+                else if (level === 2) obstacle.speed = 6.5;
+                else obstacle.speed = 8.0;
+            }
+
+            let isSameLane = (player.laneIndex === obstacle.laneIndex);
+            let playerVisualY = lanes[player.laneIndex] + (player.jumpY || 0);
+
+            if (isSameLane) {
+                let pLeft = player.x;
+                let pRight = player.x + player.width;
+                let pTop = playerVisualY - player.height;
+                let pBottom = playerVisualY;
+
+                let oLeft = obstacle.x;
+                let oRight = obstacle.x + obstacle.width;
+                let oTop = lanes[obstacle.laneIndex] - obstacle.height;
+                let oBottom = lanes[obstacle.laneIndex];
+
+                if (pRight > oLeft && pLeft < oRight && pBottom > oTop && pTop < oBottom) {
+                    gameState = "gameover";
+                }
+            }
+        }
+
+        function draw() {
+            if (stageType === "stadium") {
+                let skyGrad = ctx.createLinearGradient(0, 0, 0, 150);
+                skyGrad.addColorStop(0, "#0f0c29");
+                skyGrad.addColorStop(1, "#302b63");
+                ctx.fillStyle = skyGrad;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            } else {
+                let skyGrad = ctx.createLinearGradient(0, 0, 0, 150);
+                skyGrad.addColorStop(0, "#111827");
+                skyGrad.addColorStop(1, "#1f2937");
+                ctx.fillStyle = skyGrad;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                ctx.fillStyle = "#374151";
+                ctx.fillRect(50, 30, 65, 100);
+                ctx.fillRect(160, 10, 80, 120);
+                ctx.fillRect(300, 40, 70, 90);
+                ctx.fillRect(450, 20, 90, 110);
+                ctx.fillRect(600, 35, 75, 95);
+            }
+
+            ctx.fillStyle = stageType === "stadium" ? "#8b0000" : "#334155";
+            ctx.fillRect(0, 95, canvas.width, canvas.height - 95);
+
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.5)";
+            ctx.lineWidth = 2;
+            ctx.setLineDash([10, 10]);
+            ctx.beginPath();
+            ctx.moveTo(0, 165); ctx.lineTo(canvas.width, 165);
+            ctx.moveTo(0, 225); ctx.lineTo(canvas.width, 225);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            if (stageType === "stadium" && gameState !== "running" && gameState !== "gameover") {
+                ctx.fillStyle = "#ffffff";
+                ctx.fillRect(referee.x, referee.y - 18, 14, 22);
+                ctx.fillStyle = "#ffdbac";
+                ctx.fillRect(referee.x + 2, referee.y - 30, 10, 12);
+                ctx.fillStyle = "#333333";
+                ctx.fillRect(referee.x - 2, referee.y - 12, 18, 4);
+                ctx.fillStyle = "#ffdbac";
+                ctx.fillRect(referee.x + 12, referee.y - 20, 8, 4);
+            }
+
+            let oBaseY = lanes[obstacle.laneIndex];
+            if (stageType === "stadium" || obstacle.type === "hurdle") {
+                ctx.fillStyle = "rgba(0,0,0,0.3)";
+                ctx.fillRect(obstacle.x + 2, oBaseY - 4, obstacle.width, 6);
+                ctx.fillStyle = "#666";
+                ctx.fillRect(obstacle.x, oBaseY - 25, 4, 25);
+                ctx.fillRect(obstacle.x + obstacle.width - 4, oBaseY - 25, 4, 25);
+                ctx.fillStyle = "#e63946";
+                ctx.fillRect(obstacle.x, oBaseY - 32, obstacle.width, 10);
+                ctx.fillStyle = "#f1faee";
+                ctx.fillRect(obstacle.x + 6, oBaseY - 32, 8, 10);
+            } else if (obstacle.type === "rock") {
+                ctx.fillStyle = "#64748b";
+                ctx.fillRect(obstacle.x + 4, oBaseY - obstacle.height, obstacle.width - 8, obstacle.height);
+            } else if (obstacle.type === "car") {
+                ctx.fillStyle = "#ef4444";
+                ctx.fillRect(obstacle.x, oBaseY - 24, obstacle.width, 20);
+                ctx.fillStyle = "#38bdf8";
+                ctx.fillRect(obstacle.x + 30, oBaseY - 20, 12, 10);
+            } else if (obstacle.type === "train") {
+                ctx.fillStyle = "#1e293b";
+                ctx.fillRect(obstacle.x, oBaseY - 42, obstacle.width, 42);
+                ctx.fillStyle = "#fbbf24";
+                for(let wx = obstacle.x + 15; wx < obstacle.x + obstacle.width - 15; wx += 25) {
+                    ctx.fillRect(wx, oBaseY - 34, 14, 16);
+                }
+            } else if (obstacle.type === "giant") {
+                ctx.fillStyle = "#b91c1c";
+                ctx.fillRect(obstacle.x, oBaseY - obstacle.height, obstacle.width, obstacle.height);
+                ctx.fillStyle = "#fef08a";
+                ctx.font = "bold 16px sans-serif";
+                ctx.fillText("⚠️", obstacle.x + 10, oBaseY - 40);
+            }
+
+            let playerVisualY = lanes[player.laneIndex] + (player.jumpY || 0);
+
+            ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
+            ctx.beginPath();
+            let shadowW = player.isJumping ? 12 : 24;
+            ctx.ellipse(player.x + player.width/2, lanes[player.laneIndex] + 2, shadowW, 4, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            if (gameState === "ready") {
+                ctx.fillStyle = "#ffdbac";
+                ctx.fillRect(player.x + 12, playerVisualY - 42, 12, 12);
+                ctx.fillStyle = "#0055a5";
+                ctx.fillRect(player.x + 8, playerVisualY - 30, 20, 20);
+            } else if (gameState === "onYourMarks") {
+                ctx.fillStyle = "#0055a5";
+                ctx.fillRect(player.x + 6, playerVisualY - 20, 24, 14);
+                ctx.fillStyle = "#ffdbac";
+                ctx.fillRect(player.x + 2, playerVisualY - 18, 10, 6);
+            } else if (gameState === "set") {
+                ctx.fillStyle = "#0055a5";
+                ctx.fillRect(player.x + 8, playerVisualY - 26, 22, 18);
+                ctx.fillStyle = "#ffdbac";
+                ctx.fillRect(player.x + 4, playerVisualY - 22, 10, 6);
+            } else {
+                let hY = playerVisualY - 42;
+                let bY = playerVisualY - 28;
+
+                ctx.fillStyle = "#ffdbac";
+                ctx.fillRect(player.x + 14, hY, 14, 14);
+                ctx.fillStyle = "#2c2c2c";
+                ctx.fillRect(player.x + 12, hY - 2, 16, 6);
+
+                ctx.fillStyle = "#0055a5";
+                ctx.fillRect(player.x + 8, bY, 20, 18);
+
+                ctx.fillStyle = "#ffdbac";
+                if (player.isJumping) {
+                    ctx.fillRect(player.x + 2, bY + 4, 10, 6);
+                    ctx.fillRect(player.x + 22, bY + 14, 12, 6);
+                } else {
+                    let legS = Math.sin(player.animFrame) * 6;
+                    ctx.fillRect(player.x + 6, bY + 18, 6, 12 + legS);
+                    ctx.fillRect(player.x + 18, bY + 18, 6, 12 - legS);
+                }
+            }
+
+            if (gameState === "running") {
+                ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
+                ctx.font = "14px sans-serif";
+                if (player.laneIndex > 0) ctx.fillText("▲", player.x + 10, lanes[player.laneIndex] - 50);
+                if (player.laneIndex < 2) ctx.fillText("▼", player.x + 10, lanes[player.laneIndex] + 20);
+            }
+
+            ctx.fillStyle = "#ffffff";
+            ctx.font = "bold 16px 'Helvetica Neue', Arial, sans-serif";
+            ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
+            ctx.shadowBlur = 4;
+            ctx.fillText("SCORE: " + score, 20, 28);
+            ctx.fillText("LEVEL: " + level + (level >= 3 ? " (MAX)" : ""), 170, 28);
+            ctx.fillText("STAGE: " + (stageType === "stadium" ? "競技場" : "ストリート"), 330, 28);
+            ctx.shadowBlur = 0;
+
+            if (gameState === "onYourMarks" || gameState === "set") {
+                ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = "#4ea8de";
+                ctx.font = "bold 26px 'Helvetica Neue', Arial, sans-serif";
+                ctx.textAlign = "center";
+                ctx.fillText(messageText, canvas.width / 2, 130);
+                ctx.textAlign = "left";
+            } else if (gameState === "ready") {
+                ctx.fillStyle = "rgba(15, 12, 41, 0.85)";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = "#4ea8de";
+                ctx.font = "bold 26px 'Helvetica Neue', Arial, sans-serif";
+                ctx.textAlign = "center";
+                ctx.fillText(messageText, canvas.width / 2, 130);
+                ctx.fillStyle = "#ffffff";
+                ctx.font = "15px 'Helvetica Neue', Arial, sans-serif";
+                ctx.fillText("画面をタップ または スタート", canvas.width / 2, 175);
+                ctx.textAlign = "left";
+            }
+
+            if (gameState === "gameover") {
+                ctx.fillStyle = "rgba(15, 12, 41, 0.9)";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                ctx.fillStyle = "#ff4d4d";
+                ctx.font = "bold 28px 'Helvetica Neue', Arial, sans-serif";
+                ctx.textAlign = "center";
+                ctx.fillText("GAME OVER", canvas.width / 2, 90);
+
+                ctx.fillStyle = "#ffffff";
+                ctx.font = "15px 'Helvetica Neue', Arial, sans-serif";
+                ctx.fillText("最終スコア: " + score + " (到達レベル: " + level + ")", canvas.width / 2, 130);
+
+                ctx.fillStyle = "#22c55e";
+                ctx.fillRect(230, 170, 140, 40);
+                ctx.fillStyle = "#ffffff";
+                ctx.font = "bold 15px 'Helvetica Neue', Arial, sans-serif";
+                ctx.fillText("もう一度やる", 300, 196);
+
+                ctx.fillStyle = "#64748b";
+                ctx.fillRect(380, 170, 140, 40);
+                ctx.fillStyle = "#ffffff";
+                ctx.fillText("終了する", 450, 196);
+
+                ctx.textAlign = "left";
+            }
+        }
+
+        function loop() {
+            update();
+            draw();
+            if (gameState === "running") {
+                requestAnimationFrame(loop);
+            }
+        }
+
+        draw();
+    </script>
+</body>
+</html>
