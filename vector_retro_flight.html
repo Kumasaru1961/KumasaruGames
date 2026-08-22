@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>Vector Retro Flight - Virtual Joystick</title>
+  <title>Vector Retro Flight - Constrained Joystick</title>
   <style>
     body { margin: 0; overflow: hidden; background: #000; font-family: 'Courier New', monospace; touch-action: none; }
     canvas { display: block; }
@@ -35,10 +35,10 @@
         display: flex; align-items: center; gap: 8px; color: #0ff; font-size: 14px;
     }
 
-    /* 透過ジョイスティック（左下） */
+    /* 透過ジョイスティック（画面内に確実に収まる左下に配置） */
     #joystick-base {
-        position: absolute; bottom: 40px; left: 40px;
-        width: 120px; height: 120px;
+        position: absolute; bottom: 30px; left: 30px;
+        width: 110px; height: 110px;
         background: rgba(0, 255, 255, 0.1);
         border: 2px solid rgba(0, 255, 255, 0.4);
         border-radius: 50%;
@@ -47,7 +47,7 @@
     }
     #joystick-stick {
         position: absolute;
-        width: 50px; height: 50px;
+        width: 45px; height: 45px;
         background: rgba(0, 255, 255, 0.3);
         border: 2px solid #0ff;
         border-radius: 50%;
@@ -57,8 +57,8 @@
 
     /* スマホ用バーチャルFIREボタン（右下） */
     #btn-fire {
-        position: absolute; bottom: 40px; right: 40px;
-        width: 85px; height: 85px;
+        position: absolute; bottom: 30px; right: 30px;
+        width: 80px; height: 80px;
         background: rgba(0, 255, 255, 0.15);
         border: 2px solid #0ff; color: #0ff;
         border-radius: 50%; font-size: 18px; font-weight: bold;
@@ -136,7 +136,7 @@
   <div id="title-screen">
     <h1>VECTOR RETRO FLIGHT</h1>
     <p>[ PC ] 矢印キー / W,A,S,D ＆ スペースキー</p>
-    <p>[ スマホ ] 左下ジョイスティック ＆ 右下FIREボタン</p>
+    <p>[ スマホ ] 画面内ジョイスティック ＆ 右下FIREボタン</p>
     <p style="color:#ffff00; margin-top:10px;">ボスや通常敵の攻撃をかわせ！</p>
     <div class="blink">- TAP OR PRESS KEY TO START -</div>
   </div>
@@ -162,7 +162,7 @@
     </div>
   </div>
 
-  <!-- 透過ジョイスティック -->
+  <!-- 画面内に収まる透過ジョイスティック -->
   <div id="joystick-base">
     <div id="joystick-stick"></div>
   </div>
@@ -440,20 +440,25 @@
     });
     window.addEventListener('keyup', e => keys[e.key] = false);
 
-    // --- バーチャルジョイスティックのタッチ操作処理 ---
+    // --- 画面内に収まるジョイスティックのタッチ操作処理 ---
     let joystickInputX = 0;
     let joystickInputY = 0;
     let isJoystickActive = false;
+    let joystickCenter = { x: 0, y: 0 };
     const joystickBase = document.getElementById('joystick-base');
     const joystickStick = document.getElementById('joystick-stick');
-    const baseRect = { x: 100, y: window.innerHeight - 100, radius: 50 };
 
     window.addEventListener('touchstart', e => {
       if (!gameStarted) { startGame(); return; }
       const touch = e.touches[0];
-      // 画面左側でのタッチならジョイスティック操作開始
+      // 画面左側（全幅の半分以下）でのタッチならジョイスティックをその位置に出現または追従
       if (touch.clientX < window.innerWidth / 2) {
         isJoystickActive = true;
+        const baseRect = joystickBase.getBoundingClientRect();
+        joystickCenter = {
+          x: baseRect.left + baseRect.width / 2,
+          y: baseRect.top + baseRect.height / 2
+        };
         updateJoystick(touch.clientX, touch.clientY);
       }
     });
@@ -474,21 +479,25 @@
     });
 
     function updateJoystick(clientX, clientY) {
-      const dx = clientX - baseRect.x;
-      const dy = clientY - baseRect.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      const maxDist = 40;
+      // 画面の縦横幅を超えないようにタッチ位置をクランプ（制限）
+      const clampedX = Math.max(40, Math.min(window.innerWidth - 40, clientX));
+      const clampedY = Math.max(40, Math.min(window.innerHeight - 40, clientY));
 
-      let clampedX = dx;
-      let clampedY = dy;
+      const dx = clampedX - joystickCenter.x;
+      const dy = clampedY - joystickCenter.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const maxDist = 35;
+
+      let stickX = dx;
+      let stickY = dy;
       if (dist > maxDist) {
-        clampedX = (dx / dist) * maxDist;
-        clampedY = (dy / dist) * maxDist;
+        stickX = (dx / dist) * maxDist;
+        stickY = (dy / dist) * maxDist;
       }
 
-      joystickStick.style.transform = `translate(${clampedX}px, ${clampedY}px)`;
-      joystickInputX = clampedX / maxDist;
-      joystickInputY = -clampedY / maxDist; // 上方向をプラスに
+      joystickStick.style.transform = `translate(${stickX}px, ${stickY}px)`;
+      joystickInputX = stickX / maxDist;
+      joystickInputY = -stickY / maxDist; // 上方向をプラスに
     }
 
     document.getElementById('btn-fire').addEventListener('touchstart', (e) => {
@@ -543,7 +552,6 @@
       const spawnInterval = Math.max(20, 50 - level * 6);
       if(frameCount % spawnInterval === 0) createUFO();
 
-      // PCキーボード ＋ スマホジョイスティック入力を合算
       let targetVelX = joystickInputX * 0.35;
       let targetVelY = joystickInputY * 0.35;
 
