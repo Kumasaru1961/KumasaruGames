@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>Vector Retro Flight - Return to Home Joystick</title>
+  <title>Vector Retro Flight - Fixed Fire Button</title>
   <style>
     body { margin: 0; overflow: hidden; background: #000; font-family: 'Courier New', monospace; touch-action: none; }
     canvas { display: block; }
@@ -64,7 +64,7 @@
         border-radius: 50%; font-size: 18px; font-weight: bold;
         display: flex; justify-content: center; align-items: center;
         user-select: none; box-shadow: 0 0 10px rgba(0,255,255,0.3);
-        z-index: 20; display: none;
+        z-index: 20; display: none; touch-action: none;
     }
     #btn-fire:active { background: rgba(0, 255, 255, 0.5); box-shadow: 0 0 20px #0ff; }
 
@@ -136,7 +136,7 @@
   <div id="title-screen">
     <h1>VECTOR RETRO FLIGHT</h1>
     <p>[ PC ] 矢印キー / W,A,S,D ＆ スペースキー</p>
-    <p>[ スマホ ] ジョイスティック (離すと中央へ復帰)</p>
+    <p>[ スマホ ] ジョイスティック ＆ 右下FIREボタン</p>
     <p style="color:#ffff00; margin-top:10px;">ボスや通常敵の攻撃をかわせ！</p>
     <div class="blink">- TAP OR PRESS KEY TO START -</div>
   </div>
@@ -451,6 +451,7 @@
     window.addEventListener('touchstart', e => {
       if (!gameStarted) { startGame(); return; }
       const touch = e.touches[0];
+      // 右側のFIREボタン領域（画面右半分）を除外して左側タッチのみジョイスティック反応させる
       if (touch.clientX < window.innerWidth / 2) {
         isJoystickActive = true;
         const baseRect = joystickBase.getBoundingClientRect();
@@ -468,7 +469,7 @@
       updateJoystick(touch.clientX, touch.clientY);
     });
 
-    window.addEventListener('touchend', () => {
+    window.addEventListener('touchend', e => {
       if (isJoystickActive) {
         isJoystickActive = false;
         joystickInputX = 0;
@@ -498,7 +499,10 @@
       joystickInputY = -stickY / maxDist; // 上方向をプラスに
     }
 
-    document.getElementById('btn-fire').addEventListener('touchstart', (e) => {
+    // FIREボタンの誤作動防止（伝播を完全にブロック）
+    const btnFire = document.getElementById('btn-fire');
+    btnFire.addEventListener('touchstart', (e) => {
+      e.stopPropagation();
       e.preventDefault();
       if (gameStarted) fireBullet();
     });
@@ -550,26 +554,22 @@
       const spawnInterval = Math.max(20, 50 - level * 6);
       if(frameCount % spawnInterval === 0) createUFO();
 
-      // 目標位置の計算（ジョイスティック操作時は入力値に応じた位置、未操作時はホームポジション(x=0, y=2)に徐々に戻す）
-      let targetX = joystickInputX * 8; // 左右の最大移動範囲
-      let targetY = 2 + joystickInputY * 3; // 上下の最大移動範囲（基準Y=2）
+      let targetX = joystickInputX * 8;
+      let targetY = 2 + joystickInputY * 3;
 
       if (keys['ArrowLeft'] || keys['a']) targetX = -8;
       if (keys['ArrowRight'] || keys['d']) targetX = 8;
       if (keys['ArrowUp'] || keys['w']) targetY = 5;
       if (keys['ArrowDown'] || keys['s']) targetY = -1;
 
-      // 手を離している（ジョイスティックもキーも入力なし）ときはホームポジション (0, 2) へ緩やかに補間して戻す
       if (!isJoystickActive && !keys['ArrowLeft'] && !keys['ArrowRight'] && !keys['ArrowUp'] && !keys['ArrowDown'] && !keys['a'] && !keys['d'] && !keys['w'] && !keys['s']) {
         targetX = 0;
         targetY = 2;
       }
 
-      // 緩やかに追従する移動処理
       playerGroup.position.x += (targetX - playerGroup.position.x) * 0.1;
       playerGroup.position.y += (targetY - playerGroup.position.y) * 0.1;
 
-      // 移動範囲のクランプ（スマホ画面内から絶対にはみ出さないように制限）
       playerGroup.position.x = Math.max(-9.5, Math.min(9.5, playerGroup.position.x));
       playerGroup.position.y = Math.max(-1.8, Math.min(5.8, playerGroup.position.y));
 
