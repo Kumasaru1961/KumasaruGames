@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>Vector Retro Flight - Constrained Joystick</title>
+  <title>Vector Retro Flight - Return to Home Joystick</title>
   <style>
     body { margin: 0; overflow: hidden; background: #000; font-family: 'Courier New', monospace; touch-action: none; }
     canvas { display: block; }
@@ -136,7 +136,7 @@
   <div id="title-screen">
     <h1>VECTOR RETRO FLIGHT</h1>
     <p>[ PC ] 矢印キー / W,A,S,D ＆ スペースキー</p>
-    <p>[ スマホ ] 画面内ジョイスティック ＆ 右下FIREボタン</p>
+    <p>[ スマホ ] ジョイスティック (離すと中央へ復帰)</p>
     <p style="color:#ffff00; margin-top:10px;">ボスや通常敵の攻撃をかわせ！</p>
     <div class="blink">- TAP OR PRESS KEY TO START -</div>
   </div>
@@ -162,7 +162,7 @@
     </div>
   </div>
 
-  <!-- 画面内に収まる透過ジョイスティック -->
+  <!-- 透過ジョイスティック -->
   <div id="joystick-base">
     <div id="joystick-stick"></div>
   </div>
@@ -440,7 +440,7 @@
     });
     window.addEventListener('keyup', e => keys[e.key] = false);
 
-    // --- 画面内に収まるジョイスティックのタッチ操作処理 ---
+    // --- 透過ジョイスティックのタッチ操作処理 ---
     let joystickInputX = 0;
     let joystickInputY = 0;
     let isJoystickActive = false;
@@ -451,7 +451,6 @@
     window.addEventListener('touchstart', e => {
       if (!gameStarted) { startGame(); return; }
       const touch = e.touches[0];
-      // 画面左側（全幅の半分以下）でのタッチならジョイスティックをその位置に出現または追従
       if (touch.clientX < window.innerWidth / 2) {
         isJoystickActive = true;
         const baseRect = joystickBase.getBoundingClientRect();
@@ -479,7 +478,6 @@
     });
 
     function updateJoystick(clientX, clientY) {
-      // 画面の縦横幅を超えないようにタッチ位置をクランプ（制限）
       const clampedX = Math.max(40, Math.min(window.innerWidth - 40, clientX));
       const clampedY = Math.max(40, Math.min(window.innerHeight - 40, clientY));
 
@@ -552,24 +550,30 @@
       const spawnInterval = Math.max(20, 50 - level * 6);
       if(frameCount % spawnInterval === 0) createUFO();
 
-      let targetVelX = joystickInputX * 0.35;
-      let targetVelY = joystickInputY * 0.35;
+      // 目標位置の計算（ジョイスティック操作時は入力値に応じた位置、未操作時はホームポジション(x=0, y=2)に徐々に戻す）
+      let targetX = joystickInputX * 8; // 左右の最大移動範囲
+      let targetY = 2 + joystickInputY * 3; // 上下の最大移動範囲（基準Y=2）
 
-      if (keys['ArrowLeft'] || keys['a']) targetVelX = -0.18;
-      if (keys['ArrowRight'] || keys['d']) targetVelX = 0.18;
-      if (keys['ArrowUp'] || keys['w']) targetVelY = 0.18;
-      if (keys['ArrowDown'] || keys['s']) targetVelY = -0.18;
+      if (keys['ArrowLeft'] || keys['a']) targetX = -8;
+      if (keys['ArrowRight'] || keys['d']) targetX = 8;
+      if (keys['ArrowUp'] || keys['w']) targetY = 5;
+      if (keys['ArrowDown'] || keys['s']) targetY = -1;
 
-      velocityX += (targetVelX - velocityX) * 0.1;
-      velocityY += (targetVelY - velocityY) * 0.1;
+      // 手を離している（ジョイスティックもキーも入力なし）ときはホームポジション (0, 2) へ緩やかに補間して戻す
+      if (!isJoystickActive && !keys['ArrowLeft'] && !keys['ArrowRight'] && !keys['ArrowUp'] && !keys['ArrowDown'] && !keys['a'] && !keys['d'] && !keys['w'] && !keys['s']) {
+        targetX = 0;
+        targetY = 2;
+      }
 
-      playerGroup.position.x += velocityX;
-      playerGroup.position.y += velocityY;
+      // 緩やかに追従する移動処理
+      playerGroup.position.x += (targetX - playerGroup.position.x) * 0.1;
+      playerGroup.position.y += (targetY - playerGroup.position.y) * 0.1;
 
-      playerGroup.position.x = Math.max(-10, Math.min(10, playerGroup.position.x));
-      playerGroup.position.y = Math.max(-2, Math.min(6, playerGroup.position.y));
+      // 移動範囲のクランプ（スマホ画面内から絶対にはみ出さないように制限）
+      playerGroup.position.x = Math.max(-9.5, Math.min(9.5, playerGroup.position.x));
+      playerGroup.position.y = Math.max(-1.8, Math.min(5.8, playerGroup.position.y));
 
-      playerGroup.rotation.z = -velocityX * 1.2;
+      playerGroup.rotation.z = - (playerGroup.position.x - targetX) * 0.15;
       playerGroup.rotation.x = (playerGroup.position.y - 1.5) * 0.08;
 
       const playerAltPercent = Math.max(0, Math.min(100, ((playerGroup.position.y + 2) / 8) * 100));
